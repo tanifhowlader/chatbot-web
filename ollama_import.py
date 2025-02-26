@@ -6,15 +6,15 @@ from newspaper import Article
 from bs4 import BeautifulSoup
 from flask import Flask, render_template, request, jsonify
 from colorama import init, Fore, Style
-from openai import OpenAI
+import openai
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+# Set OpenAI API key from environment variable
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
-# Function to interact with OpenAI API
+# Function to communicate with OpenAI API
 def chat_with_openai(prompt):
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",  # Use "gpt-4" if you have access
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # Change to "gpt-4" if you have access
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt}
@@ -22,7 +22,7 @@ def chat_with_openai(prompt):
         max_tokens=150,
         temperature=0.7
     )
-    return response.choices[0].message.content.strip()
+    return response['choices'][0]['message']['content'].strip()
 
 # Initialize colorama and Flask
 init(autoreset=True)
@@ -123,4 +123,5 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
 

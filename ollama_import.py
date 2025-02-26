@@ -7,6 +7,17 @@ from bs4 import BeautifulSoup
 from flask import Flask, render_template, request, jsonify
 from colorama import init, Fore, Style
 import os
+import openai
+
+openai.api_key = 'YOUR_OPENAI_API_KEY'
+
+def chat_with_openai(prompt):
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=150
+    )
+    return response.choices[0].text.strip()
 
 # Initialize colorama and Flask
 init(autoreset=True)
@@ -20,25 +31,17 @@ assistant_convo = []
 
 def search_or_not(prompt):
     """Decide if a web search is necessary."""
-    response = ollama.chat(
-        model='llama3.2:latest',
-        messages=[
-            {'role': 'system', 'content': "Determine if a web search is required."},
-            {'role': 'user', 'content': prompt}
-        ]
+    response = chat_with_openai(
+        "Determine if a web search is required.\nUser: " + prompt
     )
-    return 'true' in response['message']['content'].lower()
+    return 'true' in response.lower()
 
 def generate_query(prompt):
     """Generate a search query from the user's input."""
-    response = ollama.chat(
-        model='llama3.2:latest',
-        messages=[
-            {'role': 'system', 'content': "Create a search query based on the user input."},
-            {'role': 'user', 'content': prompt}
-        ]
+    response = chat_with_openai(
+        "Create a search query based on the user input.\nUser: " + prompt
     )
-    return response['message']['content']
+    return response
 
 def google_search(query, num_results=5):
     """Perform a Google search and return URLs."""
@@ -63,14 +66,10 @@ def scrape_webpage(url):
 
 def contains_relevant_data(page_text, prompt):
     """Check if the scraped content answers the user's query."""
-    response = ollama.chat(
-        model='llama3.2:latest',
-        messages=[
-            {'role': 'system', 'content': "Determine if this content answers the user's question."},
-            {'role': 'user', 'content': f"User Question: {prompt}\nContent: {page_text}"}
-        ]
+    response = chat_with_openai(
+        f"Determine if this content answers the user's question.\nUser Question: {prompt}\nContent: {page_text}"
     )
-    return 'true' in response['message']['content'].lower()
+    return 'true' in response.lower()
 
 def ai_search(prompt):
     """Conduct a web search and return relevant content."""
@@ -96,12 +95,11 @@ def generate_response(user_input):
         combined_prompt = f"SEARCH RESULT: {context}\nUSER: {user_input}"
         assistant_convo.append({'role': 'user', 'content': combined_prompt})
     
-    response = ollama.chat(
-        model='llama3.2:latest',
-        messages=assistant_convo
+    response = chat_with_openai(
+        "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in assistant_convo])
     )
 
-    ai_reply = response['message']['content']
+    ai_reply = response
     assistant_convo.append({'role': 'assistant', 'content': ai_reply})
     return ai_reply
 
@@ -119,3 +117,4 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+

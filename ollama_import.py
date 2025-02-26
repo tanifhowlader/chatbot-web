@@ -1,20 +1,20 @@
-import openai
-import requests
+import os
 import logging
+import requests
 from googlesearch import search
 from newspaper import Article
 from bs4 import BeautifulSoup
 from flask import Flask, render_template, request, jsonify
 from colorama import init, Fore, Style
-import os
+from openai import OpenAI
 
-# Set up OpenAI API key from environment variables
-openai.api_key = os.getenv('OPENAI_API_KEY')  # Secure your API key
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
-# Function to communicate with OpenAI API
+# Function to interact with OpenAI API
 def chat_with_openai(prompt):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",  # Use "gpt-4" if available and desired
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",  # Use "gpt-4" if you have access
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt}
@@ -22,16 +22,16 @@ def chat_with_openai(prompt):
         max_tokens=150,
         temperature=0.7
     )
-    return response['choices'][0]['message']['content'].strip()
+    return response.choices[0].message.content.strip()
 
 # Initialize colorama and Flask
 init(autoreset=True)
 app = Flask(__name__)
 
-# Set up logging for monitoring and debugging
+# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Conversation history to maintain context
+# Store conversation history
 assistant_convo = []
 
 def search_or_not(prompt):
@@ -123,3 +123,4 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+

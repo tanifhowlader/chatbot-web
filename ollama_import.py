@@ -17,7 +17,7 @@ def set_openai_api_key():
 
 set_openai_api_key()
 
-# Function to communicate with OpenAI API using the latest API version
+# Function to communicate with OpenAI API using the latest recommended interface
 def chat_with_openai(prompt):
     try:
         response = openai.ChatCompletion.create(
@@ -29,7 +29,10 @@ def chat_with_openai(prompt):
             max_tokens=150,
             temperature=0.7
         )
-        return response['choices'][0]['message']['content'].strip()
+        return response.choices[0].message['content'].strip()
+    except AttributeError:
+        logging.error("Your openai library version is incompatible. Please upgrade with 'pip install --upgrade openai'.")
+        return "Error: Incompatible OpenAI library version. Please upgrade the 'openai' package."
     except Exception as e:
         logging.error(f"Error communicating with OpenAI: {e}")
         return "An error occurred while processing your request. Please try again later."
@@ -137,5 +140,4 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-
 

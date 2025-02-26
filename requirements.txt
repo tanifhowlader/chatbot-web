@@ -4,3 +4,4 @@ googlesearch-python
 newspaper3k
 beautifulsoup4
 colorama
+lxml_html_clean

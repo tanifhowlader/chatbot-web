@@ -9,20 +9,30 @@ from colorama import init, Fore, Style
 import openai
 
 # Set OpenAI API key from environment variable
-openai.api_key = os.getenv('OPENAI_API_KEY')
+def set_openai_api_key():
+    api_key = os.getenv('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is not set.")
+    openai.api_key = api_key
+
+set_openai_api_key()
 
 # Function to communicate with OpenAI API using the latest API version
 def chat_with_openai(prompt):
-    response = openai.chat.completions.create(
-        model="gpt-3.5-turbo",  # Change to "gpt-4" if you have access
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=150,
-        temperature=0.7
-    )
-    return response.choices[0].message['content'].strip()
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # Use "gpt-4" if available
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150,
+            temperature=0.7
+        )
+        return response['choices'][0]['message']['content'].strip()
+    except Exception as e:
+        logging.error(f"Error communicating with OpenAI: {e}")
+        return "An error occurred while processing your request. Please try again later."
 
 # Initialize colorama and Flask
 init(autoreset=True)
@@ -50,7 +60,11 @@ def generate_query(prompt):
 
 def google_search(query, num_results=5):
     """Perform a Google search and return a list of URLs."""
-    return list(search(query, num_results=num_results, stop=num_results, pause=2))
+    try:
+        return list(search(query, num_results=num_results, stop=num_results, pause=2))
+    except Exception as e:
+        logging.error(f"Google search failed: {e}")
+        return []
 
 def scrape_webpage(url):
     """Scrape and extract text content from a given webpage URL."""

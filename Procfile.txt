@@ -1,1 +1,1 @@
-web: ollama_import.py
+web: python ollama_import.py

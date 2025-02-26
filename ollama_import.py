@@ -8,6 +8,9 @@ from flask import Flask, render_template, request, jsonify
 from colorama import init, Fore, Style
 import openai
 
+# Set OpenAI API key directly (for testing purposes)
+os.environ['OPENAI_API_KEY'] = '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'
+
 # Set OpenAI API key from environment variable
 def set_openai_api_key():
     api_key = os.getenv('OPENAI_API_KEY')
@@ -19,23 +22,16 @@ set_openai_api_key()
 
 # Function to communicate with OpenAI API using the latest recommended interface
 def chat_with_openai(prompt):
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Use "gpt-4" if available
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150,
-            temperature=0.7
-        )
-        return response.choices[0].message['content'].strip()
-    except AttributeError:
-        logging.error("Your openai library version is incompatible. Please upgrade with 'pip install --upgrade openai'.")
-        return "Error: Incompatible OpenAI library version. Please upgrade the 'openai' package."
-    except Exception as e:
-        logging.error(f"Error communicating with OpenAI: {e}")
-        return "An error occurred while processing your request. Please try again later."
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # Or use "gpt-4" if you have access
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=150,
+        temperature=0.7
+    )
+    return response.choices[0].message.content.strip()
 
 # Initialize colorama and Flask
 init(autoreset=True)
@@ -140,4 +136,5 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
+
 

@@ -6,6 +6,7 @@ from newspaper import Article
 from bs4 import BeautifulSoup
 from flask import Flask, render_template, request, jsonify
 from colorama import init, Fore, Style
+import os
 
 # Initialize colorama and Flask
 init(autoreset=True)
@@ -116,4 +117,5 @@ def chat():
     return jsonify({'response': ai_response})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

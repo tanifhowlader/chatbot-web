@@ -1,1 +1,1 @@
-web: app.py
+web: ollama_import.py

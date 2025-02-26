@@ -1,4 +1,3 @@
-import ollama
 import requests
 import logging
 from googlesearch import search

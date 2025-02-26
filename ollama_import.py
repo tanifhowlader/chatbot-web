@@ -8,10 +8,7 @@ from flask import Flask, render_template, request, jsonify
 from colorama import init, Fore, Style
 import openai
 
-# Set OpenAI API key directly (for testing purposes only; do not use in production)
-os.environ['OPENAI_API_KEY'] = 'YOUR_OPENAI_API_KEY_HERE'
-
-# Function to set OpenAI API key from environment variable
+# Set OpenAI API key from environment variable
 def set_openai_api_key():
     api_key = os.getenv('OPENAI_API_KEY')
     if not api_key:
@@ -140,4 +137,3 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-

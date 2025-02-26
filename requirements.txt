@@ -1,5 +1,5 @@
 flask
-ollama
+openai
 googlesearch-python
 newspaper3k
 beautifulsoup4

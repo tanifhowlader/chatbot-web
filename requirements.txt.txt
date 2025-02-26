@@ -1,0 +1,6 @@
+flask
+ollama
+googlesearch-python
+newspaper3k
+beautifulsoup4
+colorama

@@ -11,9 +11,9 @@ import openai
 # Set OpenAI API key from environment variable
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
-# Function to communicate with OpenAI API
+# Function to communicate with OpenAI API using the latest API version
 def chat_with_openai(prompt):
-    response = openai.ChatCompletion.create(
+    response = openai.chat.completions.create(
         model="gpt-3.5-turbo",  # Change to "gpt-4" if you have access
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
@@ -22,7 +22,7 @@ def chat_with_openai(prompt):
         max_tokens=150,
         temperature=0.7
     )
-    return response['choices'][0]['message']['content'].strip()
+    return response.choices[0].message['content'].strip()
 
 # Initialize colorama and Flask
 init(autoreset=True)

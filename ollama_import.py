@@ -8,10 +8,10 @@ from flask import Flask, render_template, request, jsonify
 from colorama import init, Fore, Style
 import openai
 
-# Set OpenAI API key directly (for testing purposes)
-os.environ['OPENAI_API_KEY'] = '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'
+# Set OpenAI API key directly (for testing purposes only; do not use in production)
+os.environ['OPENAI_API_KEY'] = 'YOUR_OPENAI_API_KEY_HERE'
 
-# Set OpenAI API key from environment variable
+# Function to set OpenAI API key from environment variable
 def set_openai_api_key():
     api_key = os.getenv('OPENAI_API_KEY')
     if not api_key:
@@ -20,40 +20,44 @@ def set_openai_api_key():
 
 set_openai_api_key()
 
-# Function to communicate with OpenAI API using the latest recommended interface
+# Function to communicate with OpenAI API using the latest interface
 def chat_with_openai(prompt):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",  # Or use "gpt-4" if you have access
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=150,
-        temperature=0.7
-    )
-    return response.choices[0].message.content.strip()
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # Change to "gpt-4" if accessible
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150,
+            temperature=0.7
+        )
+        return response['choices'][0]['message']['content'].strip()
+    except Exception as e:
+        logging.error(f"Error communicating with OpenAI: {e}")
+        return "An error occurred while processing your request. Please try again later."
 
 # Initialize colorama and Flask
 init(autoreset=True)
 app = Flask(__name__)
 
-# Setup logging
+# Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Store conversation history
+# Store conversation history for context-aware responses
 assistant_convo = []
 
 def search_or_not(prompt):
-    """Determine if a web search is required."""
+    """Determine if a web search is required based on the user's input."""
     response = chat_with_openai(
         f"Determine if a web search is required for the following user input:\nUser: {prompt}"
     )
     return 'true' in response.lower()
 
 def generate_query(prompt):
-    """Generate a search query based on user input."""
+    """Generate a search query based on the user input."""
     response = chat_with_openai(
-        f"Create a concise and relevant search query for the following user input:\nUser: {prompt}"
+        f"Create a concise search query for the following input:\nUser: {prompt}"
     )
     return response
 
@@ -66,14 +70,14 @@ def google_search(query, num_results=5):
         return []
 
 def scrape_webpage(url):
-    """Scrape and extract text content from a given webpage URL."""
+    """Extract text content from a webpage."""
     try:
         article = Article(url)
         article.download()
         article.parse()
         return article.text
     except Exception as e:
-        logging.warning(f"Primary scrape failed: {e}. Using fallback.")
+        logging.warning(f"Primary scrape failed: {e}. Using fallback method.")
         try:
             response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -83,14 +87,14 @@ def scrape_webpage(url):
             return None
 
 def contains_relevant_data(page_text, prompt):
-    """Check if the scraped content answers the user's question."""
+    """Check if the extracted content answers the user's query."""
     response = chat_with_openai(
         f"Does the following content answer the user's question?\nUser Question: {prompt}\nContent: {page_text}"
     )
     return 'true' in response.lower()
 
 def ai_search(prompt):
-    """Conduct a web search and return the most relevant content."""
+    """Conduct a search and return the most relevant content."""
     search_query = generate_query(prompt)
     logging.info(f"Search Query: {search_query}")
     search_results = google_search(search_query)
@@ -104,12 +108,12 @@ def ai_search(prompt):
     return "No relevant data found."
 
 def generate_response(user_input):
-    """Generate an AI response with or without additional web search context."""
+    """Generate an AI response with or without web search context."""
     assistant_convo.append({'role': 'user', 'content': user_input})
 
     if search_or_not(user_input):
         context = ai_search(user_input)
-        assistant_convo.pop()  # Remove the original user input to avoid duplication
+        assistant_convo.pop()  # Remove duplicate user input
         combined_prompt = f"SEARCH RESULT: {context}\nUSER: {user_input}"
         assistant_convo.append({'role': 'user', 'content': combined_prompt})
 
@@ -136,5 +140,4 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-
 

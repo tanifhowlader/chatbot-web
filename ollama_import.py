@@ -15,27 +15,33 @@ app = Flask(__name__)
 # ✅ Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# ✅ Hugging Face Model URL
-HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/deepseek-ai/DeepSeek-R1"
+# ✅ DeepSeek API Details
+DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
-# ✅ Chat with DeepSeek-R1 Model
+# ✅ Function to Chat with DeepSeek API
 def chat_with_open_source_model(prompt):
-    api_key = os.getenv('HF_API_KEY')
-    if not api_key:
-        print("❌ Error: HF_API_KEY is not set. Please configure it in your .env or Render environment variables.")
-        return "Error: API key is missing."
+    if not DEEPSEEK_API_KEY:
+        print("❌ Error: DeepSeek API key is missing. Set it in your environment variables.")
+        return "Error: Missing API key."
 
     headers = {
-        "Authorization": f"Bearer {api_key}",
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
         "Content-Type": "application/json"
     }
-    payload = {"inputs": prompt, "options": {"wait_for_model": True}}
+
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.6,
+        "max_tokens": 512
+    }
 
     try:
-        print(f"🚀 Sending request to: {HUGGING_FACE_API_URL}")
+        print(f"🚀 Sending request to: {DEEPSEEK_API_URL}")
         print(f"📤 Payload: {payload}")
 
-        response = requests.post(HUGGING_FACE_API_URL, headers=headers, json=payload, timeout=60)
+        response = requests.post(DEEPSEEK_API_URL, headers=headers, json=payload, timeout=60)
 
         print(f"📥 Response Status Code: {response.status_code}")
         print(f"✅ Raw API Response: {response.text}")
@@ -43,21 +49,19 @@ def chat_with_open_source_model(prompt):
         response.raise_for_status()
         result = response.json()
 
-        if isinstance(result, list) and len(result) > 0 and 'generated_text' in result[0]:
-            return result[0]['generated_text']
-        elif isinstance(result, dict) and 'error' in result:
-            error_msg = result['error']
-            print(f"⚠️ Model Error: {error_msg}")
-            return f"⚠️ DeepSeek-R1 Model Error: {error_msg}"
+        if "choices" in result and len(result["choices"]) > 0:
+            return result["choices"][0]["message"]["content"]
+        elif "error" in result:
+            return f"⚠️ API Error: {result['error']['message']}"
         else:
-            return "⚠️ Unexpected response from the model."
+            return "⚠️ Unexpected response format from DeepSeek API."
 
     except requests.exceptions.HTTPError as http_err:
         print(f"❌ HTTP Error: {http_err}")
         return "Error: HTTP request failed."
     except requests.exceptions.RequestException as req_err:
         print(f"❌ Request Exception: {req_err}")
-        return "Error: Could not reach the model API."
+        return "Error: Could not reach the DeepSeek API."
     except Exception as e:
         print(f"❌ Unexpected Error: {e}")
         return "Error: An unexpected error occurred."

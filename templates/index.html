@@ -2,52 +2,179 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Chatbot Interface</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
-        #chat-box { width: 100%; height: 400px; border: 1px solid #ccc; padding: 10px; overflow-y: auto; background: #fff; }
-        #user-input { width: 80%; padding: 10px; }
-        #send-btn { padding: 10px 20px; cursor: pointer; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            width: 90%;
+            max-width: 600px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: #007bff;
+            color: white;
+            text-align: center;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .chat-box {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background: #007bff;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .bot-message {
+            background: #e9ecef;
+            color: black;
+            align-self: flex-start;
+        }
+
+        .typing-indicator {
+            font-style: italic;
+            color: gray;
+            margin-bottom: 10px;
+            align-self: flex-start;
+        }
+
+        .input-container {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            background: white;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .send-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin-left: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .send-btn:hover {
+            background: #0056b3;
+        }
+
     </style>
 </head>
 <body>
-    <h2>Interactive Chatbot</h2>
-    <div id="chat-box"></div>
-    <input type="text" id="user-input" placeholder="Type your message..." />
-    <button id="send-btn">Send</button>
+
+    <div class="chat-container">
+        <div class="chat-header">AI Chatbot</div>
+        <div class="chat-box" id="chat-box">
+            <div class="bot-message chat-message">Hello! How can I assist you today?</div>
+        </div>
+        <div class="input-container">
+            <input type="text" id="user-input" class="chat-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+            <button class="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
 
     <script>
-        const chatBox = document.getElementById('chat-box');
-        const userInput = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
+        function sendMessage() {
+            let userInput = document.getElementById("user-input").value;
+            if (userInput.trim() === "") return;
 
-        function addMessage(role, message) {
-            const messageElem = document.createElement('div');
-            messageElem.innerHTML = `<strong>${role}:</strong> ${message}`;
-            chatBox.appendChild(messageElem);
+            let chatBox = document.getElementById("chat-box");
+
+            // Add user message to chat
+            let userMessage = document.createElement("div");
+            userMessage.className = "user-message chat-message";
+            userMessage.innerText = userInput;
+            chatBox.appendChild(userMessage);
+            
+            // Add typing indicator
+            let typingIndicator = document.createElement("div");
+            typingIndicator.className = "typing-indicator";
+            typingIndicator.innerText = "AI is typing...";
+            chatBox.appendChild(typingIndicator);
+            
             chatBox.scrollTop = chatBox.scrollHeight;
-        }
+            document.getElementById("user-input").value = "";
 
-        sendBtn.addEventListener('click', () => {
-            const message = userInput.value.trim();
-            if (!message) return;
-
-            addMessage('You', message);
-            userInput.value = '';
-
-            fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message })
+            // Send request to chatbot
+            fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: userInput })
             })
             .then(response => response.json())
-            .then(data => addMessage('Bot', data.response))
-            .catch(() => addMessage('Bot', 'Error: Could not reach server.'));
-        });
+            .then(data => {
+                chatBox.removeChild(typingIndicator);
+                
+                // Add bot response to chat
+                let botMessage = document.createElement("div");
+                botMessage.className = "bot-message chat-message";
+                botMessage.innerText = data.response;
+                chatBox.appendChild(botMessage);
+                
+                chatBox.scrollTop = chatBox.scrollHeight;
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                chatBox.removeChild(typingIndicator);
+                
+                let errorMessage = document.createElement("div");
+                errorMessage.className = "bot-message chat-message";
+                errorMessage.innerText = "⚠️ Error: Unable to connect.";
+                chatBox.appendChild(errorMessage);
+            });
+        }
 
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendBtn.click();
-        });
+        function handleKeyPress(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        }
     </script>
+
 </body>
 </html>

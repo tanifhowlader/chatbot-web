@@ -15,33 +15,33 @@ app = Flask(__name__)
 # ✅ Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# ✅ DeepSeek API Details
-DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+# ✅ Groq API Details (Correct Endpoint)
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# ✅ Function to Chat with DeepSeek API
+# ✅ Function to Chat with Groq API
 def chat_with_open_source_model(prompt):
-    if not DEEPSEEK_API_KEY:
-        print("❌ Error: DeepSeek API key is missing. Set it in your environment variables.")
+    if not GROQ_API_KEY:
+        print("❌ Error: Groq API key is missing. Set it in your environment variables.")
         return "Error: Missing API key."
 
     headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
     }
 
     payload = {
-        "model": "deepseek-chat",
+        "model": "mixtral-8x7b-32768",  # Other options: "llama3-70b", "gemini-pro"
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.6,
         "max_tokens": 512
     }
 
     try:
-        print(f"🚀 Sending request to: {DEEPSEEK_API_URL}")
+        print(f"🚀 Sending request to: {GROQ_API_URL}")
         print(f"📤 Payload: {payload}")
 
-        response = requests.post(DEEPSEEK_API_URL, headers=headers, json=payload, timeout=60)
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=60)
 
         print(f"📥 Response Status Code: {response.status_code}")
         print(f"✅ Raw API Response: {response.text}")
@@ -54,17 +54,11 @@ def chat_with_open_source_model(prompt):
         elif "error" in result:
             return f"⚠️ API Error: {result['error']['message']}"
         else:
-            return "⚠️ Unexpected response format from DeepSeek API."
+            return "⚠️ Unexpected response format from Groq API."
 
-    except requests.exceptions.HTTPError as http_err:
-        print(f"❌ HTTP Error: {http_err}")
-        return "Error: HTTP request failed."
-    except requests.exceptions.RequestException as req_err:
-        print(f"❌ Request Exception: {req_err}")
-        return "Error: Could not reach the DeepSeek API."
-    except Exception as e:
-        print(f"❌ Unexpected Error: {e}")
-        return "Error: An unexpected error occurred."
+    except requests.exceptions.RequestException as e:
+        print(f"❌ API Request Failed: {e}")
+        return "Error: Could not reach the Groq API."
 
 # ✅ Routes
 @app.route('/')
@@ -88,3 +82,4 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🚀 Running on http://127.0.0.1:{port}")
     app.run(host='0.0.0.0', port=port, debug=True)
+

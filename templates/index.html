@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chatbot</title>
+    <title>Environmental Science Chatbot</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
+            background-color: #e0f2f1;  /* Light greenish-blue for nature feel */
             margin: 0;
             padding: 0;
             display: flex;
@@ -28,7 +28,7 @@
         }
 
         .chat-header {
-            background: #007bff;
+            background: #2e7d32;  /* Dark green for an eco-theme */
             color: white;
             text-align: center;
             padding: 15px;
@@ -54,13 +54,13 @@
         }
 
         .user-message {
-            background: #007bff;
+            background: #1b5e20;  /* Deep green for user messages */
             color: white;
             align-self: flex-end;
         }
 
         .bot-message {
-            background: #e9ecef;
+            background: #c8e6c9; /* Light green for bot messages */
             color: black;
             align-self: flex-start;
         }
@@ -89,7 +89,7 @@
         }
 
         .send-btn {
-            background: #007bff;
+            background: #2e7d32;
             color: white;
             border: none;
             padding: 10px 15px;
@@ -100,20 +100,19 @@
         }
 
         .send-btn:hover {
-            background: #0056b3;
+            background: #1b5e20;
         }
-
     </style>
 </head>
 <body>
 
     <div class="chat-container">
-        <div class="chat-header">AI Chatbot</div>
+        <div class="chat-header">Environmental Science Chatbot</div>
         <div class="chat-box" id="chat-box">
-            <div class="bot-message chat-message">Hello! How can I assist you today?</div>
+            <div class="bot-message chat-message">Hello! Ask me anything about environmental science. 🌍</div>
         </div>
         <div class="input-container">
-            <input type="text" id="user-input" class="chat-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+            <input type="text" id="user-input" class="chat-input" placeholder="Type a question..." onkeypress="handleKeyPress(event)">
             <button class="send-btn" onclick="sendMessage()">Send</button>
         </div>
     </div>
@@ -125,22 +124,13 @@
 
             let chatBox = document.getElementById("chat-box");
 
-            // Add user message to chat
             let userMessage = document.createElement("div");
             userMessage.className = "user-message chat-message";
             userMessage.innerText = userInput;
             chatBox.appendChild(userMessage);
             
-            // Add typing indicator
-            let typingIndicator = document.createElement("div");
-            typingIndicator.className = "typing-indicator";
-            typingIndicator.innerText = "AI is typing...";
-            chatBox.appendChild(typingIndicator);
-            
-            chatBox.scrollTop = chatBox.scrollHeight;
             document.getElementById("user-input").value = "";
 
-            // Send request to chatbot
             fetch("/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -148,24 +138,10 @@
             })
             .then(response => response.json())
             .then(data => {
-                chatBox.removeChild(typingIndicator);
-                
-                // Add bot response to chat
                 let botMessage = document.createElement("div");
                 botMessage.className = "bot-message chat-message";
                 botMessage.innerText = data.response;
                 chatBox.appendChild(botMessage);
-                
-                chatBox.scrollTop = chatBox.scrollHeight;
-            })
-            .catch(error => {
-                console.error("Error:", error);
-                chatBox.removeChild(typingIndicator);
-                
-                let errorMessage = document.createElement("div");
-                errorMessage.className = "bot-message chat-message";
-                errorMessage.innerText = "⚠️ Error: Unable to connect.";
-                chatBox.appendChild(errorMessage);
             });
         }
 

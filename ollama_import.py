@@ -17,9 +17,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # ✅ Groq API Details (Correct Endpoint)
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
-# ✅ Function to Chat with Groq API
+# ✅ Function to Chat with Groq API (With Debugging Logs)
 def chat_with_open_source_model(prompt):
     if not GROQ_API_KEY:
         print("❌ Error: Groq API key is missing. Set it in your environment variables.")
@@ -52,13 +52,23 @@ def chat_with_open_source_model(prompt):
         if "choices" in result and len(result["choices"]) > 0:
             return result["choices"][0]["message"]["content"]
         elif "error" in result:
+            print(f"⚠️ API Error: {result['error']['message']}")
             return f"⚠️ API Error: {result['error']['message']}"
         else:
             return "⚠️ Unexpected response format from Groq API."
 
-    except requests.exceptions.RequestException as e:
-        print(f"❌ API Request Failed: {e}")
-        return "Error: Could not reach the Groq API."
+    except requests.exceptions.HTTPError as http_err:
+        print(f"❌ HTTP Error on Render: {http_err}")
+        return f"Error: HTTP request failed. {http_err}"
+    except requests.exceptions.ConnectionError as conn_err:
+        print(f"❌ Connection Error on Render: {conn_err}")
+        return f"Error: Connection failed. {conn_err}"
+    except requests.exceptions.Timeout as timeout_err:
+        print(f"❌ Timeout Error on Render: {timeout_err}")
+        return f"Error: API request timed out. {timeout_err}"
+    except requests.exceptions.RequestException as req_err:
+        print(f"❌ API Request Failed on Render: {req_err}")
+        return f"Error: Could not reach the Groq API. {req_err}"
 
 # ✅ Routes
 @app.route('/')
@@ -82,4 +92,3 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🚀 Running on http://127.0.0.1:{port}")
     app.run(host='0.0.0.0', port=port, debug=True)
-

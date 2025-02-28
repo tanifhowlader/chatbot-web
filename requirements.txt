@@ -6,3 +6,5 @@ beautifulsoup4
 colorama
 lxml_html_clean
 python-dotenv
+requests
+wikipedia-api

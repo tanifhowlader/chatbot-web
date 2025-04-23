@@ -66,17 +66,17 @@ def chat_with_model(prompt):
     else:
         LAST_QUERY = clean_prompt
 
-    # ✅ Try Wikipedia
+    # ✅ Wikipedia fallback
     wiki_result = wikipedia_search(clean_prompt)
     if wiki_result:
         return wiki_result
 
-    # ✅ Try DuckDuckGo
+    # ✅ DuckDuckGo fallback
     ddg_result = duckduckgo_search(clean_prompt)
     if ddg_result and "⚠️" not in ddg_result:
         return ddg_result
 
-    # ✅ Groq fallback
+    # ✅ Groq streaming response
     try:
         completion = client.chat.completions.create(
             model=os.getenv("GROQ_MODEL", "mistral-saba-24b"),
@@ -84,14 +84,23 @@ def chat_with_model(prompt):
                 {"role": "system", "content": "You are an expert environmental science assistant."},
                 {"role": "user", "content": clean_prompt}
             ],
-            temperature=0.7,
-            max_completion_tokens=4096,
-            stream=False
+            stream=True,
+            temperature=0.6,
+            max_completion_tokens=2048
         )
-        return completion.choices[0].message.content
+
+        response_text = ""
+        for chunk in completion:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                response_text += delta
+
+        return response_text
+
     except Exception as e:
         logging.error(f"❌ Groq API error: {e}")
         return "⚠️ AI service is currently unavailable. Please try again later."
+
 
 # ✅ Flask Routes
 @app.route("/")

@@ -8,3 +8,5 @@ lxml_html_clean
 python-dotenv
 requests
 wikipedia-api
+gunicorn
+python-dotenv

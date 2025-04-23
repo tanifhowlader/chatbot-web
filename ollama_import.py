@@ -84,8 +84,8 @@ def chat_with_model(prompt):
                 {"role": "system", "content": "You are an expert environmental science assistant."},
                 {"role": "user", "content": clean_prompt}
             ],
-            temperature=0.6,
-            max_completion_tokens=2048,
+            temperature=0.7,
+            max_completion_tokens=4096,
             stream=False
         )
         return completion.choices[0].message.content

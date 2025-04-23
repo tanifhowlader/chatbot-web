@@ -68,21 +68,33 @@
     </div>
 
     <script>
-        async function submitQuery() {
-            const input = document.getElementById('user-input').value;
-            const responseBox = document.getElementById('chat-response');
-            responseBox.innerHTML = "<em>Loading...</em>";
+    async function submitQuery() {
+        const input = document.getElementById('user-input').value;
+        const responseBox = document.getElementById('chat-response');
+        responseBox.innerHTML = "<em>Thinking...</em>";
 
-            const res = await fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: input })
-            });
+        const res = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: input })
+        });
 
-            const data = await res.json();
-            const html = marked.parse(data.response);
-            responseBox.innerHTML = html;
+        if (!res.body) {
+            responseBox.innerHTML = "⚠️ No response body.";
+            return;
         }
-    </script>
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        responseBox.innerHTML = ""; // clear loading
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            responseBox.innerHTML += decoder.decode(value, { stream: true });
+        }
+    }
+</script>
+
 </body>
 </html>

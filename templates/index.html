@@ -2,155 +2,87 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Environmental Science Chatbot</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        :root {
+            --primary-color: #2e7d32;   /* Forest Green */
+            --secondary-color: #a5d6a7; /* Light Green */
+            --background-color: #f1f8e9; /* Eco background */
+        }
+
         body {
             font-family: Arial, sans-serif;
-            background-color: #e0f2f1;  /* Light greenish-blue for nature feel */
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            margin: 40px;
+            background-color: var(--background-color);
+            color: #1b1b1b;
         }
 
-        .chat-container {
-            width: 90%;
-            max-width: 600px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+        h2 {
+            color: var(--primary-color);
         }
 
-        .chat-header {
-            background: #2e7d32;  /* Dark green for an eco-theme */
-            color: white;
-            text-align: center;
-            padding: 15px;
-            font-size: 18px;
-            font-weight: bold;
-        }
-
-        .chat-box {
-            flex: 1;
-            padding: 15px;
-            overflow-y: auto;
-            height: 400px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .chat-message {
-            margin-bottom: 10px;
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
             padding: 10px;
-            border-radius: 8px;
-            max-width: 80%;
-            word-wrap: break-word;
-        }
-
-        .user-message {
-            background: #1b5e20;  /* Deep green for user messages */
-            color: white;
-            align-self: flex-end;
-        }
-
-        .bot-message {
-            background: #c8e6c9; /* Light green for bot messages */
-            color: black;
-            align-self: flex-start;
-        }
-
-        .typing-indicator {
-            font-style: italic;
-            color: gray;
-            margin-bottom: 10px;
-            align-self: flex-start;
-        }
-
-        .input-container {
-            display: flex;
-            padding: 10px;
-            border-top: 1px solid #ddd;
-            background: white;
-        }
-
-        .chat-input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
             font-size: 16px;
-            outline: none;
         }
 
-        .send-btn {
-            background: #2e7d32;
+        button {
+            background-color: var(--primary-color);
             color: white;
+            padding: 10px 20px;
             border: none;
-            padding: 10px 15px;
-            margin-left: 10px;
-            border-radius: 5px;
-            cursor: pointer;
+            border-radius: 6px;
             font-size: 16px;
+            cursor: pointer;
         }
 
-        .send-btn:hover {
-            background: #1b5e20;
+        button:hover {
+            background-color: #1b5e20;
+        }
+
+        #response-box {
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: var(--secondary-color);
+            white-space: pre-wrap;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
+    <h2>🌿 Environmental Science Chatbot</h2>
 
-    <div class="chat-container">
-        <div class="chat-header">Environmental Science Chatbot</div>
-        <div class="chat-box" id="chat-box">
-            <div class="bot-message chat-message">Hello! Ask me anything about environmental science. 🌍</div>
-        </div>
-        <div class="input-container">
-            <input type="text" id="user-input" class="chat-input" placeholder="Type a question..." onkeypress="handleKeyPress(event)">
-            <button class="send-btn" onclick="sendMessage()">Send</button>
-        </div>
+    <textarea id="user-input" placeholder="Ask something like 'What is ecological integrity?'"></textarea>
+    <button onclick="submitQuery()">Send</button>
+
+    <h3>Response:</h3>
+    <div id="response-box">
+        <div id="chat-response"></div>
     </div>
 
     <script>
-        function sendMessage() {
-            let userInput = document.getElementById("user-input").value;
-            if (userInput.trim() === "") return;
+        async function submitQuery() {
+            const input = document.getElementById('user-input').value;
+            const responseBox = document.getElementById('chat-response');
+            responseBox.innerHTML = "<em>Loading...</em>";
 
-            let chatBox = document.getElementById("chat-box");
-
-            let userMessage = document.createElement("div");
-            userMessage.className = "user-message chat-message";
-            userMessage.innerText = userInput;
-            chatBox.appendChild(userMessage);
-            
-            document.getElementById("user-input").value = "";
-
-            fetch("/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: userInput })
-            })
-            .then(response => response.json())
-            .then(data => {
-                let botMessage = document.createElement("div");
-                botMessage.className = "bot-message chat-message";
-                botMessage.innerText = data.response;
-                chatBox.appendChild(botMessage);
+            const res = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: input })
             });
-        }
 
-        function handleKeyPress(event) {
-            if (event.key === "Enter") {
-                sendMessage();
-            }
+            const data = await res.json();
+            const html = marked.parse(data.response);
+            responseBox.innerHTML = html;
         }
     </script>
-
 </body>
 </html>

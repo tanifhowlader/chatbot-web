@@ -97,14 +97,14 @@ def chat_with_open_source_model(prompt):
     }
 
     payload = {
-        "model": "mixtral-8x7b-32768",
-        "messages": [
-            {"role": "system", "content": "You are an expert environmental science assistant."},
-            {"role": "user", "content": clean_prompt}
-        ],
-        "temperature": 0.6,
-        "max_tokens": 512
-    }
+    "model": "mistral-saba-24b",  # 🔁 Updated from deprecated 'mixtral-8x7b-32768'
+    "messages": [
+        {"role": "system", "content": "You are an expert environmental science assistant."},
+        {"role": "user", "content": clean_prompt}
+    ],
+    "temperature": 0.6,
+    "max_tokens": 512
+}
 
     try:
         response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=60)

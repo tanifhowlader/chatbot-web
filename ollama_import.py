@@ -107,16 +107,59 @@ def chat_with_model(prompt):
 def home():
     return render_template("index.html")
 
+from flask import Response, stream_with_context
+
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.json.get("message")
     logging.info(f"💬 User input: {user_input}")
+    
     if not user_input:
         return jsonify({"response": "⚠️ Please enter a message."})
-    response = chat_with_model(user_input)
-    return jsonify({"response": response})
 
-# ✅ Run server locally or on Render
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    @stream_with_context
+    def generate():
+        global LAST_QUERY
+        clean_prompt = clean_query(user_input)
+
+        if clean_prompt == "definition" and LAST_QUERY:
+            clean_prompt = LAST_QUERY
+        else:
+            LAST_QUERY = clean_prompt
+
+        # ✅ Wikipedia fallback
+        wiki_result = wikipedia_search(clean_prompt)
+        if wiki_result:
+            yield wiki_result
+            return
+
+        # ✅ DuckDuckGo fallback
+        ddg_result = duckduckgo_search(clean_prompt)
+        if ddg_result and "⚠️" not in ddg_result:
+            yield ddg_result
+            return
+
+        # ✅ Groq streaming fallback
+        try:
+            completion = client.chat.completions.create(
+                model=os.getenv("GROQ_MODEL", "mistral-saba-24b"),
+                messages=[
+                    {"role": "system", "content": "You are an expert environmental science assistant."},
+                    {"role": "user", "content": clean_prompt}
+                ],
+                stream=True,
+                temperature=0.6,
+                max_completion_tokens=2048
+            )
+
+            for chunk in completion:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+
+        except Exception as e:
+            logging.error(f"❌ Streaming error: {e}")
+            yield "⚠️ AI service is currently unavailable."
+
+    return Response(generate(), mimetype='text/plain')
+

@@ -1,1 +1,2 @@
-web: python ollama_import.py
+web: gunicorn ollama_import:app
+

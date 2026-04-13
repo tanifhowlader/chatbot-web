@@ -5,7 +5,7 @@ import requests
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
 import wikipediaapi
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from groq import Groq
 
 load_dotenv()

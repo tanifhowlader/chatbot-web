@@ -2,99 +2,582 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Environmental Science Chatbot</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        /* ── Reset & Variables ─────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         :root {
-            --primary-color: #2e7d32;   /* Forest Green */
-            --secondary-color: #a5d6a7; /* Light Green */
-            --background-color: #f1f8e9; /* Eco background */
+            --primary:     #2e7d32;
+            --primary-dark:#1b5e20;
+            --primary-light:#e8f5e9;
+            --bubble-bot:  #ffffff;
+            --bubble-user: #2e7d32;
+            --bg:          #f1f8e9;
+            --border:      #c8e6c9;
+            --text:        #1b1b1b;
+            --muted:       #6a6a6a;
+            --shadow:      0 2px 12px rgba(0,0,0,0.08);
+            --radius:      16px;
         }
 
         body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            background-color: var(--background-color);
-            color: #1b1b1b;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-        h2 {
-            color: var(--primary-color);
-        }
-
-        textarea {
+        /* ── Header ────────────────────────────────────── */
+        header {
             width: 100%;
-            height: 100px;
-            margin-bottom: 20px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            padding: 10px;
-            font-size: 16px;
-        }
-
-        button {
-            background-color: var(--primary-color);
+            background: var(--primary);
             color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        header .logo { font-size: 28px; }
+
+        header .title-group h1 {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        header .title-group p {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        header .status-dot {
+            width: 9px; height: 9px;
+            background: #69f0ae;
+            border-radius: 50%;
+            margin-left: auto;
+            box-shadow: 0 0 6px #69f0ae;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+
+        /* ── Chat Container ────────────────────────────── */
+        .chat-wrapper {
+            width: 100%;
+            max-width: 780px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 16px 16px 0;
+            overflow: hidden;
+        }
+
+        #chat-window {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-bottom: 12px;
+            scroll-behavior: smooth;
+        }
+
+        /* ── Welcome Message ───────────────────────────── */
+        .welcome {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .welcome h2 { color: var(--primary); font-size: 17px; margin-bottom: 8px; }
+        .welcome p  { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+        .suggestion-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 14px;
+        }
+
+        .chip {
+            background: var(--primary-light);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 13px;
+            color: var(--primary-dark);
             cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
         }
 
-        button:hover {
-            background-color: #1b5e20;
+        .chip:hover {
+            background: #c8e6c9;
+            transform: translateY(-1px);
         }
 
-        #response-box {
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            background-color: var(--secondary-color);
-            white-space: pre-wrap;
-            margin-top: 20px;
+        /* ── Message Bubbles ───────────────────────────── */
+        .message {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            animation: fadeIn 0.25s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user  { flex-direction: row-reverse; }
+        .message.bot   { flex-direction: row; }
+
+        .avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .message.user .avatar { background: var(--primary); color: white; }
+        .message.bot  .avatar { background: #fff; border: 1px solid var(--border); }
+
+        .bubble {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            font-size: 15px;
+            line-height: 1.65;
+            box-shadow: var(--shadow);
+        }
+
+        .message.user .bubble {
+            background: var(--bubble-user);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.bot .bubble {
+            background: var(--bubble-bot);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        /* Markdown inside bot bubbles */
+        .bubble p         { margin-bottom: 8px; }
+        .bubble p:last-child { margin-bottom: 0; }
+        .bubble strong    { color: var(--primary-dark); }
+        .bubble code      { background: #f5f5f5; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+        .bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
+        .bubble li        { margin-bottom: 4px; }
+
+        /* ── Typing Indicator ──────────────────────────── */
+        .typing .bubble {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 14px 18px;
+        }
+
+        .dot {
+            width: 8px; height: 8px;
+            background: #aaa;
+            border-radius: 50%;
+            animation: bounce 1.2s infinite;
+        }
+
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40%            { transform: translateY(-6px); background: var(--primary); }
+        }
+
+        /* ── Source Badge ──────────────────────────────── */
+        .source-badge {
+            display: inline-block;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .badge-wiki { background: #fff9c4; color: #f57f17; }
+        .badge-web  { background: #e3f2fd; color: #1565c0; }
+        .badge-ai   { background: #f3e5f5; color: #6a1b9a; }
+
+        /* ── Input Area ────────────────────────────────── */
+        .input-area {
+            width: 100%;
+            max-width: 780px;
+            padding: 12px 16px 20px;
+            background: var(--bg);
+        }
+
+        .input-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            background: white;
+            border: 1.5px solid var(--border);
+            border-radius: 24px;
+            padding: 8px 8px 8px 18px;
+            box-shadow: var(--shadow);
+            transition: border-color 0.2s;
+        }
+
+        .input-row:focus-within { border-color: var(--primary); }
+
+        #user-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 15px;
+            resize: none;
+            font-family: inherit;
+            background: transparent;
+            max-height: 120px;
+            min-height: 24px;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        #send-btn {
+            width: 40px; height: 40px;
+            background: var(--primary);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        #send-btn:hover    { background: var(--primary-dark); transform: scale(1.05); }
+        #send-btn:disabled { background: #aaa; cursor: not-allowed; transform: none; }
+
+        .input-hint {
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        /* ── Clear Button ──────────────────────────────── */
+        #clear-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: 12px;
+            color: var(--muted);
+            cursor: pointer;
+            display: block;
+            margin: 0 auto 8px;
+            transition: background 0.2s;
+        }
+
+        #clear-btn:hover { background: #ffe0e0; border-color: #ef9a9a; color: #c62828; }
+
+        /* ── Scrollbar ─────────────────────────────────── */
+        #chat-window::-webkit-scrollbar       { width: 5px; }
+        #chat-window::-webkit-scrollbar-track { background: transparent; }
+        #chat-window::-webkit-scrollbar-thumb { background: #c8e6c9; border-radius: 10px; }
+
+        /* ── Responsive ────────────────────────────────── */
+        @media (max-width: 600px) {
+            .bubble { max-width: 88%; font-size: 14px; }
+            header .title-group h1 { font-size: 16px; }
         }
     </style>
 </head>
 <body>
-    <h2>🌿 Environmental Science Chatbot</h2>
 
-    <textarea id="user-input" placeholder="Ask something like 'What is ecological integrity?'"></textarea>
-    <button onclick="submitQuery()">Send</button>
-
-    <h3>Response:</h3>
-    <div id="response-box">
-        <div id="chat-response"></div>
+<!-- ── Header ─────────────────────────────────────── -->
+<header>
+    <div class="logo">🌿</div>
+    <div class="title-group">
+        <h1>Environmental Science Chatbot</h1>
+        <p>Powered by Wikipedia · Web · Groq AI</p>
     </div>
+    <div class="status-dot" title="Online"></div>
+</header>
 
-    <script>
-    async function submitQuery() {
-        const input = document.getElementById('user-input').value;
-        const responseBox = document.getElementById('chat-response');
-        responseBox.innerHTML = "<em>Thinking...</em>";
+<!-- ── Chat Window ────────────────────────────────── -->
+<div class="chat-wrapper">
+    <div id="chat-window">
+        <!-- Welcome card -->
+        <div class="welcome" id="welcome-card">
+            <h2>👋 Welcome! How can I help you today?</h2>
+            <p>Ask me anything about environmental science — ecosystems,<br>
+               climate change, biodiversity, water quality, and more.</p>
+            <div class="suggestion-chips">
+                <span class="chip" onclick="useChip(this)">What is MSX disease?</span>
+                <span class="chip" onclick="useChip(this)">Explain eDNA surveillance</span>
+                <span class="chip" onclick="useChip(this)">Oyster disease monitoring</span>
+                <span class="chip" onclick="useChip(this)">Define ecological integrity</span>
+                <span class="chip" onclick="useChip(this)">Marine Protected Areas</span>
+            </div>
+        </div>
+    </div>
+</div>
 
-        const res = await fetch('/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: input })
-        });
+<!-- ── Input Area ─────────────────────────────────── -->
+<div class="input-area">
+    <button id="clear-btn" onclick="clearChat()">🗑 Clear chat</button>
+    <div class="input-row">
+        <textarea id="user-input" rows="1"
+            placeholder="Ask an environmental science question..."
+            oninput="autoResize(this)"
+            onkeydown="handleKey(event)"></textarea>
+        <button id="send-btn" onclick="submitQuery()" title="Send (Enter)">➤</button>
+    </div>
+    <p class="input-hint">Press <strong>Enter</strong> to send · <strong>Shift+Enter</strong> for new line</p>
+</div>
 
-        if (!res.body) {
-            responseBox.innerHTML = "⚠️ No response body.";
-            return;
+<script>
+    // ── State ──────────────────────────────────────────
+    let history   = [];   // [{role, content}, ...]
+    let lastQuery = "";
+    let isStreaming = false;
+
+    // ── Helpers ────────────────────────────────────────
+    function autoResize(el) {
+        el.style.height = "auto";
+        el.style.height = Math.min(el.scrollHeight, 120) + "px";
+    }
+
+    function handleKey(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submitQuery();
+        }
+    }
+
+    function useChip(el) {
+        document.getElementById("user-input").value = el.textContent;
+        submitQuery();
+    }
+
+    function scrollToBottom() {
+        const win = document.getElementById("chat-window");
+        win.scrollTop = win.scrollHeight;
+    }
+
+    function detectSource(text) {
+        if (text.startsWith("📖 **Wikipedia:**"))
+            return '<span class="source-badge badge-wiki">📖 Wikipedia</span>';
+        if (text.startsWith("🌍 **Web:**"))
+            return '<span class="source-badge badge-web">🌍 Web Search</span>';
+        return '<span class="source-badge badge-ai">🤖 Groq AI</span>';
+    }
+
+    function cleanText(text) {
+        // Remove emoji+bold source prefixes before markdown rendering
+        return text
+            .replace(/^📖 \*\*Wikipedia:\*\* ?/, "")
+            .replace(/^🌍 \*\*Web:\*\* ?/, "");
+    }
+
+    function addMessage(role, content, sourceLabel = "") {
+        const win = document.getElementById("chat-window");
+
+        // Hide welcome card on first message
+        const welcome = document.getElementById("welcome-card");
+        if (welcome) welcome.style.display = "none";
+
+        const msg = document.createElement("div");
+        msg.className = `message ${role}`;
+
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.textContent = role === "user" ? "🧑" : "🌿";
+
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+
+        if (role === "bot" && sourceLabel) {
+            bubble.innerHTML = sourceLabel;
         }
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        responseBox.innerHTML = ""; // clear loading
+        if (role === "user") {
+            bubble.textContent = content;
+        } else {
+            const mdDiv = document.createElement("div");
+            mdDiv.innerHTML = marked.parse(cleanText(content));
+            bubble.appendChild(mdDiv);
+        }
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            responseBox.innerHTML += decoder.decode(value, { stream: true });
+        msg.appendChild(avatar);
+        msg.appendChild(bubble);
+        win.appendChild(msg);
+        scrollToBottom();
+        return bubble;
+    }
+
+    function addTypingIndicator() {
+        const win = document.getElementById("chat-window");
+        const msg = document.createElement("div");
+        msg.className = "message bot typing";
+        msg.id = "typing-indicator";
+        msg.innerHTML = `
+            <div class="avatar">🌿</div>
+            <div class="bubble">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>`;
+        win.appendChild(msg);
+        scrollToBottom();
+    }
+
+    function removeTypingIndicator() {
+        const el = document.getElementById("typing-indicator");
+        if (el) el.remove();
+    }
+
+    function clearChat() {
+        history   = [];
+        lastQuery = "";
+        const win = document.getElementById("chat-window");
+        win.innerHTML = `
+            <div class="welcome" id="welcome-card">
+                <h2>👋 Welcome! How can I help you today?</h2>
+                <p>Ask me anything about environmental science — ecosystems,<br>
+                   climate change, biodiversity, water quality, and more.</p>
+                <div class="suggestion-chips">
+                    <span class="chip" onclick="useChip(this)">What is MSX disease?</span>
+                    <span class="chip" onclick="useChip(this)">Explain eDNA surveillance</span>
+                    <span class="chip" onclick="useChip(this)">Oyster disease monitoring</span>
+                    <span class="chip" onclick="useChip(this)">Define ecological integrity</span>
+                    <span class="chip" onclick="useChip(this)">Marine Protected Areas</span>
+                </div>
+            </div>`;
+    }
+
+    // ── Main Submit ────────────────────────────────────
+    async function submitQuery() {
+        if (isStreaming) return;
+
+        const inputEl  = document.getElementById("user-input");
+        const sendBtn  = document.getElementById("send-btn");
+        const userText = inputEl.value.trim();
+        if (!userText) return;
+
+        // Clear input
+        inputEl.value = "";
+        inputEl.style.height = "auto";
+
+        // Show user bubble
+        addMessage("user", userText);
+
+        // Lock UI
+        isStreaming  = true;
+        sendBtn.disabled = true;
+        sendBtn.textContent = "⏳";
+
+        addTypingIndicator();
+
+        try {
+            const res = await fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    message:    userText,
+                    history:    history,
+                    last_query: lastQuery
+                })
+            });
+
+            removeTypingIndicator();
+
+            if (!res.body) {
+                addMessage("bot", "⚠️ No response received.");
+                return;
+            }
+
+            const reader  = res.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText  = "";
+
+            // Create bot bubble for streaming
+            const win = document.getElementById("chat-window");
+            const msg = document.createElement("div");
+            msg.className = "message bot";
+
+            const avatar = document.createElement("div");
+            avatar.className = "avatar";
+            avatar.textContent = "🌿";
+
+            const bubble = document.createElement("div");
+            bubble.className = "bubble";
+
+            const sourceDiv = document.createElement("div");
+            sourceDiv.id = "source-label";
+
+            const mdDiv = document.createElement("div");
+            mdDiv.id = "stream-content";
+
+            bubble.appendChild(sourceDiv);
+            bubble.appendChild(mdDiv);
+            msg.appendChild(avatar);
+            msg.appendChild(bubble);
+            win.appendChild(msg);
+
+            // Stream chunks
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                fullText += decoder.decode(value, { stream: true });
+
+                // Update source badge once we have enough text
+                if (fullText.length > 5) {
+                    sourceDiv.innerHTML = detectSource(fullText);
+                }
+
+                // Render markdown progressively
+                mdDiv.innerHTML = marked.parse(cleanText(fullText));
+                scrollToBottom();
+            }
+
+            // ✅ Update conversation history for next turn
+            history.push({ role: "user",      content: userText });
+            history.push({ role: "assistant", content: fullText });
+            lastQuery = userText;
+
+            // Cap history at last 10 turns (20 messages) to avoid token overflow
+            if (history.length > 20) history = history.slice(-20);
+
+        } catch (err) {
+            removeTypingIndicator();
+            addMessage("bot", `⚠️ Error: ${err.message}`);
+        } finally {
+            isStreaming       = false;
+            sendBtn.disabled  = false;
+            sendBtn.textContent = "➤";
+            inputEl.focus();
         }
     }
 </script>
-
 </body>
 </html>

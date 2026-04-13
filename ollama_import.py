@@ -22,26 +22,68 @@ wiki = wikipediaapi.Wikipedia(
 
 DEFINITION_TRIGGERS = ["what is", "define", "explain", "meaning of", "definition of"]
 
+# ✅ Block Wikipedia pages from unrelated fields
+BLOCKED_WIKI_TOPICS = [
+    "physics", "neuroscience", "mathematics", "spacetime", "minkowski",
+    "relativity", "brain", "psychology", "astronomy", "quantum",
+    "lorentz", "geometry", "latent diffusion", "mri"
+]
+
+# ✅ Guard: only answer if query touches these domains
+ALLOWED_ENV_KEYWORDS = [
+    "environment", "ecology", "climate", "marine", "ocean", "aquatic",
+    "species", "habitat", "biodiversity", "water", "soil", "air",
+    "pollution", "conservation", "monitoring", "ecosystem", "estuary",
+    "oyster", "msx", "edna", "dna", "disease", "aquaculture", "fisheries",
+    "wetland", "forest", "carbon", "emission", "wildlife", "river", "lake",
+    "coastal", "algae", "sediment", "toxin", "pathogen", "microbe",
+    "bacteria", "virus", "fungi", "parasite", "plankton", "benthic",
+    "salinity", "temperature", "pH", "dissolved oxygen", "turbidity",
+    "protected area", "mpa", "dfo", "cfia", "regulation", "policy",
+    "surveillance", "detection", "sampling", "qpcr", "metabarcoding",
+    "biomonitoring", "bioenvironmental", "spatiotemporal", "spread",
+    "outbreak", "population", "abundance", "distribution", "mapping"
+]
+
+OFF_TOPIC_RESPONSE = (
+    "⚠️ This chatbot is focused on **environmental science**, ecology, "
+    "aquatic biology, and related fields.\n\n"
+    "Please ask a question related to topics like:\n"
+    "- 🦪 Oyster disease (MSX, Dermo)\n"
+    "- 🧬 eDNA surveillance and monitoring\n"
+    "- 🌊 Marine Protected Areas\n"
+    "- 🌿 Ecosystems and biodiversity\n"
+    "- 💧 Water quality and aquatic health\n"
+    "- 📋 Environmental policy and regulation"
+)
+
 SYSTEM_PROMPTS = {
     "general": (
         "You are an expert environmental science assistant. "
-        "Answer clearly and concisely. If context from a web search is provided, "
-        "use it to enrich your answer but always give a complete, detailed response. "
+        "ONLY answer questions related to environmental science, ecology, "
+        "aquatic biology, climate, conservation, or closely related fields. "
+        "If the question is unrelated (e.g. pure physics, neuroscience, mathematics, "
+        "general medicine unrelated to environment), politely decline and redirect. "
+        "If context from a web search is provided, use it to enrich your answer "
+        "but always give a complete, detailed response. "
         "After your response, on a new line write exactly: "
         "CITE: [APA-style suggested citation for the main topic discussed]"
     ),
     "research": (
         "You are a marine biologist specializing in eDNA surveillance, "
         "oyster diseases (MSX, Dermo), aquaculture monitoring, and bioenvironmental assessment. "
+        "ONLY answer questions related to these fields or environmental science broadly. "
         "Respond with scientific precision, reference detection methodologies "
-        "(qPCR, metabarcoding, eDNA filtration), and suggest relevant monitoring techniques. "
+        "(qPCR, metabarcoding, eDNA filtration, histology), and suggest relevant "
+        "monitoring techniques where applicable. "
         "If web search context is provided, incorporate it and expand with technical depth. "
         "After your response, on a new line write exactly: "
         "CITE: [APA-style suggested citation for the main topic discussed]"
     ),
     "policy": (
         "You are an environmental policy advisor specializing in marine protected areas, "
-        "aquaculture regulation, and environmental monitoring frameworks. "
+        "aquaculture regulation, DFO/CFIA frameworks, and environmental monitoring policy. "
+        "ONLY answer questions related to environmental governance or science policy. "
         "Frame all answers around regulatory implications, management strategies, "
         "and policy recommendations. Incorporate any web search context provided. "
         "After your response, on a new line write exactly: "
@@ -69,10 +111,24 @@ def extract_topic(query: str) -> str:
     return topic
 
 
+def is_environmental_query(query: str) -> bool:
+    """
+    Returns True if the query contains at least one environmental keyword.
+    Prevents physics, neuroscience, and other unrelated topics from passing through.
+    """
+    lowered = query.lower()
+    return any(keyword in lowered for keyword in ALLOWED_ENV_KEYWORDS)
+
+
 def wikipedia_search(topic: str) -> str | None:
     logging.info(f"🔍 Wikipedia search: {topic}")
     page = wiki.page(topic)
     if page.exists():
+        summary_lower = page.summary[:300].lower()
+        # ✅ Block off-topic Wikipedia pages
+        if any(word in summary_lower for word in BLOCKED_WIKI_TOPICS):
+            logging.info(f"⛔ Wikipedia blocked — off-topic content detected: {topic}")
+            return None
         summary = re.sub(r"\[\[.*?\]\]", "", page.summary[:800]).strip()
         return summary
     return None
@@ -80,10 +136,10 @@ def wikipedia_search(topic: str) -> str | None:
 
 def duckduckgo_search(query: str) -> str | None:
     """
-    Returns combined snippets from top 3 results as context for Groq.
-    Never returned directly to user anymore.
+    Fetches top 3 DDG results and combines them as context for Groq.
+    Never returned raw to the user.
     """
-    logging.info(f"🌐 DuckDuckGo context fetch: {query}")
+    logging.info(f"🌐 DDG context fetch: {query}")
     try:
         with DDGS() as ddgs:
             results = list(ddgs.text(query, max_results=3))
@@ -91,7 +147,7 @@ def duckduckgo_search(query: str) -> str | None:
                 combined = " | ".join(
                     r["body"] for r in results if r.get("body")
                 )
-                return combined[:1200]  # cap context at 1200 chars
+                return combined[:1200]
     except Exception as e:
         logging.error(f"❌ DuckDuckGo error: {e}")
     return None
@@ -100,10 +156,10 @@ def duckduckgo_search(query: str) -> str | None:
 def build_messages(history: list, prompt: str, mode: str = "general", context: str = None) -> list:
     system_prompt = SYSTEM_PROMPTS.get(mode, SYSTEM_PROMPTS["general"])
 
-    # ✅ Inject web/wiki context into user message so Groq uses it
     if context:
         enriched_prompt = (
-            f"Context from web search (use this to inform your answer):\n{context}\n\n"
+            f"Context from web search (use this to inform and enrich your answer):\n"
+            f"{context}\n\n"
             f"User question: {prompt}"
         )
     else:
@@ -130,49 +186,55 @@ def groq_stream(messages: list):
             yield delta
 
 # ─────────────────────────────────────────────
-# CORE PIPELINE — Revised Architecture
+# CORE PIPELINE
 # ─────────────────────────────────────────────
 
 def generate_stream(user_input: str, history: list, last_query: str, mode: str, force_ai: bool = False):
     """
-    NEW PIPELINE:
-      1. Wikipedia   → returns directly for definition queries (concise factual)
-      2. DuckDuckGo  → fetched as CONTEXT, passed to Groq (not returned raw)
-      3. Groq        → ALWAYS runs (enriched with DDG context if available)
-
-    force_ai=True skips Wikipedia + DDG entirely → pure Groq response.
+    PIPELINE:
+      0. Off-topic guard — reject non-environmental queries immediately
+      1. Wikipedia       — returns directly for clear definition queries
+      2. DuckDuckGo      — fetched silently as context for Groq
+      3. Groq            — ALWAYS runs with enriched context + mode prompt
     """
     clean_prompt = clean_query(user_input)
 
     if clean_prompt.lower() == "definition" and last_query:
         clean_prompt = f"define {last_query}"
 
+    # ── Step 0: Off-topic guard ─────────────────────────────────────────────
+    if not force_ai and not is_environmental_query(clean_prompt):
+        logging.info(f"⛔ Off-topic query rejected: {clean_prompt}")
+        yield OFF_TOPIC_RESPONSE
+        return
+
     context = None
 
     if not force_ai:
-        # ── Tier 1: Wikipedia for definitions only ──────────────────────────
+        # ── Step 1: Wikipedia (definitions only, returns directly) ──────────
         if is_definition_query(clean_prompt):
             topic = extract_topic(clean_prompt)
             wiki_result = wikipedia_search(topic)
             if wiki_result:
-                logging.info("📖 Wikipedia result found — returning directly")
+                logging.info("📖 Wikipedia result — returning directly")
                 yield f"📖 **Wikipedia:** {wiki_result}..."
                 return
+            # If Wikipedia blocked or missing → fall through to DDG + Groq
 
-        # ── Tier 2: DuckDuckGo as context (NOT returned raw) ───────────────
+        # ── Step 2: DDG as silent context for Groq ──────────────────────────
         context = duckduckgo_search(clean_prompt)
         if context:
-            logging.info("🌐 DDG context fetched — passing to Groq")
+            logging.info("🌐 DDG context fetched → passing to Groq")
         else:
-            logging.info("⚠️ No DDG context — Groq answering from training only")
+            logging.info("⚠️ No DDG context → Groq answering from training only")
 
-    # ── Tier 3: Groq ALWAYS runs — enriched with context ───────────────────
+    # ── Step 3: Groq always responds ────────────────────────────────────────
     try:
-        logging.info(f"🤖 Groq responding | mode={mode} | has_context={bool(context)} | force_ai={force_ai}")
+        logging.info(f"🤖 Groq | mode={mode} | context={bool(context)} | force_ai={force_ai}")
         messages = build_messages(history, clean_prompt, mode, context)
         yield from groq_stream(messages)
     except Exception as e:
-        logging.error(f"❌ Groq streaming error: {e}")
+        logging.error(f"❌ Groq error: {e}")
         yield "⚠️ AI service is currently unavailable. Please try again later."
 
 # ─────────────────────────────────────────────

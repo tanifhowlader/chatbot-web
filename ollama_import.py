@@ -1,9 +1,10 @@
 import os
+import re
 import logging
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
 import wikipediaapi
-from duckduckgo_search import DDGS  # pip install duckduckgo-search
+from duckduckgo_search import DDGS
 from groq import Groq
 
 # ✅ Load .env variables
@@ -18,38 +19,51 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 # ✅ Initialize Flask app
 app = Flask(__name__)
 
-# ✅ Wikipedia API setup (HTML format avoids raw wiki markup leaking)
+# ✅ Wikipedia API — WIKI format (plain text, no HTML tags to strip)
 wiki = wikipediaapi.Wikipedia(
     language="en",
     user_agent="EnvironmentalScienceChatbot/1.0 (https://github.com/your-repo)",
-    extract_format=wikipediaapi.ExtractFormat.HTML
+    extract_format=wikipediaapi.ExtractFormat.WIKI
 )
 
-# ✅ Definition-style trigger words — only use Wikipedia for these
-DEFINITION_TRIGGERS = ["what is", "define", "explain", "meaning of", "definition"]
+# ✅ FIX 3: Wikipedia only fires for these trigger phrases
+DEFINITION_TRIGGERS = ["what is", "define", "explain", "meaning of", "definition of"]
 
 # ─────────────────────────────────────────────
 # HELPERS
 # ─────────────────────────────────────────────
 
 def clean_query(query: str) -> str:
-    """Trim whitespace and trailing punctuation. Preserve case for proper nouns."""
+    """
+    FIX 2: NO .lower() — preserves case for proper nouns (MSX, eDNA, etc.)
+    Only strips surrounding whitespace and trailing punctuation.
+    """
     return query.strip().rstrip("?.!")
 
 
 def is_definition_query(query: str) -> bool:
+    """FIX 3: Only returns True when query explicitly asks for a definition."""
     lowered = query.lower()
-    return any(trigger in lowered for trigger in DEFINITION_TRIGGERS)
+    return any(lowered.startswith(trigger) for trigger in DEFINITION_TRIGGERS)
+
+
+def extract_topic(query: str) -> str:
+    """
+    Strip definition trigger words while PRESERVING original casing of the topic.
+    e.g. 'what is MSX disease' → 'MSX disease'  (not 'msx disease')
+    """
+    topic = query
+    for trigger in DEFINITION_TRIGGERS:
+        topic = re.sub(re.escape(trigger), "", topic, flags=re.IGNORECASE).strip()
+    return topic
 
 
 def wikipedia_search(topic: str) -> str | None:
-    logging.info(f"🔍 Wikipedia search: {topic}")
+    logging.info(f"🔍 Wikipedia search: {topic}")  # ✅ will now log 'MSX' not 'msx'
     page = wiki.page(topic)
     if page.exists():
-        # Strip HTML tags from summary for clean plain-text output
-        import re
-        clean = re.sub(r"<[^>]+>", "", page.summary[:600])
-        return f"📖 **Wikipedia:** {clean}..."
+        summary = page.summary[:600]
+        return f"📖 **Wikipedia:** {summary}..."
     return None
 
 
@@ -66,7 +80,6 @@ def duckduckgo_search(query: str) -> str | None:
 
 
 def build_messages(history: list, prompt: str) -> list:
-    """Build Groq message list with system prompt + history + current user message."""
     return [
         {
             "role": "system",
@@ -76,15 +89,15 @@ def build_messages(history: list, prompt: str) -> list:
                 "environmental science, politely redirect."
             )
         },
-        *history,  # conversation history passed from frontend
+        *history,
         {"role": "user", "content": prompt}
     ]
 
 
 def groq_stream(messages: list):
-    """Generator: streams Groq response chunks."""
+    """FIX 1: Updated model — mistral-saba-24b is decommissioned."""
     completion = client.chat.completions.create(
-        model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+        model=os.getenv("GROQ_MODEL", "qwen/qwen3-32b"),  # ✅ FIX 1
         messages=messages,
         stream=True,
         temperature=0.6,
@@ -96,39 +109,40 @@ def groq_stream(messages: list):
             yield delta
 
 # ─────────────────────────────────────────────
-# CORE PIPELINE (single source of truth)
+# CORE PIPELINE
 # ─────────────────────────────────────────────
 
 def generate_stream(user_input: str, history: list, last_query: str):
     """
-    Three-tier fallback pipeline:
-      1. Wikipedia  (only for definition-style queries)
-      2. DuckDuckGo (real web search)
-      3. Groq LLM   (with full conversation history)
+    Three-tier fallback:
+      1. Wikipedia  — ONLY for definition-style queries (FIX 3)
+      2. DuckDuckGo — full web search for everything else
+      3. Groq LLM   — with conversation history, updated model (FIX 1)
     """
+    clean_prompt = clean_query(user_input)  # FIX 2: no lowercasing
+
     # Handle bare "definition" follow-up using client-supplied last_query
-    clean_prompt = clean_query(user_input)
     if clean_prompt.lower() == "definition" and last_query:
         clean_prompt = f"define {last_query}"
 
-    # ── Tier 1: Wikipedia ───────────────────────
+    # ── Tier 1: Wikipedia ───────────────────────────────────────────────────
+    # FIX 3: Guard — Wikipedia only fires if user explicitly asks for a definition
     if is_definition_query(clean_prompt):
-        # Extract the topic from the query (strip trigger words)
-        topic = clean_prompt.lower()
-        for t in DEFINITION_TRIGGERS:
-            topic = topic.replace(t, "").strip()
+        topic = extract_topic(clean_prompt)  # FIX 2: topic preserves original case
         wiki_result = wikipedia_search(topic)
         if wiki_result:
             yield wiki_result
             return
+        # If Wikipedia misses, fall through to DuckDuckGo
 
-    # ── Tier 2: DuckDuckGo ──────────────────────
+    # ── Tier 2: DuckDuckGo ─────────────────────────────────────────────────
+    # Now correctly reached for bare queries like "MSX", "biology", "oyster disease"
     ddg_result = duckduckgo_search(clean_prompt)
     if ddg_result:
         yield ddg_result
         return
 
-    # ── Tier 3: Groq LLM ────────────────────────
+    # ── Tier 3: Groq LLM ───────────────────────────────────────────────────
     try:
         messages = build_messages(history, clean_prompt)
         yield from groq_stream(messages)
@@ -147,25 +161,22 @@ def home():
 
 @app.route("/health")
 def health():
-    """Health check endpoint for gunicorn / deployment platforms."""
     return jsonify({"status": "ok"}), 200
 
 
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.json
-
     user_input = data.get("message", "").strip()
-    history = data.get("history", [])       # [{"role": "user/assistant", "content": "..."}]
-    last_query = data.get("last_query", "") # last non-trivial query from frontend
+    history    = data.get("history", [])
+    last_query = data.get("last_query", "")
 
-    # Input validation
     if not user_input:
         return jsonify({"response": "⚠️ Please enter a message."}), 400
     if len(user_input) > 500:
-        return jsonify({"response": "⚠️ Message too long. Please keep it under 500 characters."}), 400
+        return jsonify({"response": "⚠️ Message too long. Keep it under 500 characters."}), 400
 
-    logging.info(f"💬 User: {user_input}")
+    logging.info(f"💬 User input: {user_input}")
 
     return Response(
         stream_with_context(generate_stream(user_input, history, last_query)),
@@ -178,5 +189,6 @@ def chat():
 # ─────────────────────────────────────────────
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
+

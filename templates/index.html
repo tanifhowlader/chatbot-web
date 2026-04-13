@@ -6,21 +6,20 @@
     <title>Environmental Science Chatbot</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        /* ── Reset & Variables ─────────────────────────── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --primary:     #2e7d32;
-            --primary-dark:#1b5e20;
+            --primary:      #2e7d32;
+            --primary-dark: #1b5e20;
             --primary-light:#e8f5e9;
-            --bubble-bot:  #ffffff;
-            --bubble-user: #2e7d32;
-            --bg:          #f1f8e9;
-            --border:      #c8e6c9;
-            --text:        #1b1b1b;
-            --muted:       #6a6a6a;
-            --shadow:      0 2px 12px rgba(0,0,0,0.08);
-            --radius:      16px;
+            --bg:           #f1f8e9;
+            --border:       #c8e6c9;
+            --bubble-bot:   #ffffff;
+            --bubble-user:  #2e7d32;
+            --text:         #1b1b1b;
+            --muted:        #6a6a6a;
+            --shadow:       0 2px 12px rgba(0,0,0,0.08);
+            --radius:       16px;
         }
 
         body {
@@ -33,33 +32,25 @@
             align-items: center;
         }
 
-        /* ── Header ────────────────────────────────────── */
+        /* ── Header ─────────────────────────────────── */
         header {
             width: 100%;
             background: var(--primary);
             color: white;
-            padding: 16px 24px;
+            padding: 14px 20px;
             display: flex;
             align-items: center;
             gap: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            flex-wrap: wrap;
         }
 
-        header .logo { font-size: 28px; }
+        .logo { font-size: 26px; }
 
-        header .title-group h1 {
-            font-size: 18px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-        }
+        .title-group h1 { font-size: 17px; font-weight: 700; }
+        .title-group p  { font-size: 11px; opacity: 0.8; margin-top: 2px; }
 
-        header .title-group p {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-top: 2px;
-        }
-
-        header .status-dot {
+        .status-dot {
             width: 9px; height: 9px;
             background: #69f0ae;
             border-radius: 50%;
@@ -69,18 +60,71 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: 0.4; }
+            0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
         }
 
-        /* ── Chat Container ────────────────────────────── */
+        /* ── Feature 1: Env Data Bar ─────────────────── */
+        #env-bar {
+            width: 100%;
+            background: #1b5e20;
+            color: white;
+            padding: 7px 20px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 12px;
+            flex-wrap: wrap;
+        }
+
+        #env-bar .env-item { display: flex; align-items: center; gap: 5px; }
+        #env-bar .env-item span { opacity: 0.75; }
+        #aqi-badge {
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 12px;
+            background: #69f0ae;
+            color: #1b1b1b;
+        }
+
+        /* ── Feature 2: Mode Bar ─────────────────────── */
+        .mode-bar {
+            width: 100%;
+            max-width: 780px;
+            display: flex;
+            gap: 8px;
+            padding: 10px 16px 0;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 7px 10px;
+            border: 1.5px solid var(--border);
+            border-radius: 20px;
+            background: white;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--muted);
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .mode-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .mode-btn:hover:not(.active) { background: var(--primary-light); }
+
+        /* ── Chat Container ──────────────────────────── */
         .chat-wrapper {
             width: 100%;
             max-width: 780px;
             flex: 1;
             display: flex;
             flex-direction: column;
-            padding: 16px 16px 0;
+            padding: 12px 16px 0;
             overflow: hidden;
         }
 
@@ -94,7 +138,7 @@
             scroll-behavior: smooth;
         }
 
-        /* ── Welcome Message ───────────────────────────── */
+        /* ── Welcome Card ────────────────────────────── */
         .welcome {
             background: white;
             border: 1px solid var(--border);
@@ -108,11 +152,8 @@
         .welcome p  { font-size: 14px; color: var(--muted); line-height: 1.6; }
 
         .suggestion-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            justify-content: center;
-            margin-top: 14px;
+            display: flex; flex-wrap: wrap;
+            gap: 8px; justify-content: center; margin-top: 14px;
         }
 
         .chip {
@@ -126,16 +167,11 @@
             transition: background 0.2s, transform 0.1s;
         }
 
-        .chip:hover {
-            background: #c8e6c9;
-            transform: translateY(-1px);
-        }
+        .chip:hover { background: #c8e6c9; transform: translateY(-1px); }
 
-        /* ── Message Bubbles ───────────────────────────── */
+        /* ── Bubbles ─────────────────────────────────── */
         .message {
-            display: flex;
-            align-items: flex-end;
-            gap: 8px;
+            display: flex; align-items: flex-end; gap: 8px;
             animation: fadeIn 0.25s ease;
         }
 
@@ -144,62 +180,92 @@
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        .message.user  { flex-direction: row-reverse; }
-        .message.bot   { flex-direction: row; }
+        .message.user { flex-direction: row-reverse; }
 
         .avatar {
-            width: 32px; height: 32px;
-            border-radius: 50%;
+            width: 32px; height: 32px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
+            font-size: 16px; flex-shrink: 0;
         }
 
         .message.user .avatar { background: var(--primary); color: white; }
         .message.bot  .avatar { background: #fff; border: 1px solid var(--border); }
 
         .bubble {
-            max-width: 75%;
-            padding: 12px 16px;
-            border-radius: var(--radius);
-            font-size: 15px;
-            line-height: 1.65;
-            box-shadow: var(--shadow);
+            max-width: 75%; padding: 12px 16px;
+            border-radius: var(--radius); font-size: 15px;
+            line-height: 1.65; box-shadow: var(--shadow);
         }
 
         .message.user .bubble {
-            background: var(--bubble-user);
-            color: white;
+            background: var(--bubble-user); color: white;
             border-bottom-right-radius: 4px;
         }
 
         .message.bot .bubble {
-            background: var(--bubble-bot);
-            border: 1px solid var(--border);
+            background: var(--bubble-bot); border: 1px solid var(--border);
             border-bottom-left-radius: 4px;
         }
 
-        /* Markdown inside bot bubbles */
-        .bubble p         { margin-bottom: 8px; }
+        .bubble p          { margin-bottom: 8px; }
         .bubble p:last-child { margin-bottom: 0; }
-        .bubble strong    { color: var(--primary-dark); }
-        .bubble code      { background: #f5f5f5; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+        .bubble strong     { color: var(--primary-dark); }
+        .bubble code       { background: #f5f5f5; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
         .bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
-        .bubble li        { margin-bottom: 4px; }
+        .bubble li         { margin-bottom: 4px; }
 
-        /* ── Typing Indicator ──────────────────────────── */
+        /* ── Source Badge ────────────────────────────── */
+        .source-badge {
+            display: inline-block; font-size: 11px;
+            padding: 2px 8px; border-radius: 10px;
+            margin-bottom: 6px; font-weight: 600;
+        }
+
+        .badge-wiki { background: #fff9c4; color: #f57f17; }
+        .badge-web  { background: #e3f2fd; color: #1565c0; }
+        .badge-ai   { background: #f3e5f5; color: #6a1b9a; }
+
+        /* ── Feature 4: Citation Box ─────────────────── */
+        .cite-box {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: #f9fbe7;
+            border-left: 3px solid #aed581;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #555;
+            font-style: italic;
+        }
+
+        .cite-box strong { font-style: normal; color: var(--primary-dark); }
+
+        /* ── Feature 5: Action Buttons ───────────────── */
+        .bubble-actions {
+            display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: var(--primary-light);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.2s;
+        }
+
+        .action-btn:hover { background: #c8e6c9; }
+
+        /* ── Typing Indicator ────────────────────────── */
         .typing .bubble {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 14px 18px;
+            display: flex; align-items: center; gap: 5px; padding: 14px 18px;
         }
 
         .dot {
-            width: 8px; height: 8px;
-            background: #aaa;
-            border-radius: 50%;
-            animation: bounce 1.2s infinite;
+            width: 8px; height: 8px; background: #aaa;
+            border-radius: 50%; animation: bounce 1.2s infinite;
         }
 
         .dot:nth-child(2) { animation-delay: 0.2s; }
@@ -210,133 +276,112 @@
             40%            { transform: translateY(-6px); background: var(--primary); }
         }
 
-        /* ── Source Badge ──────────────────────────────── */
-        .source-badge {
-            display: inline-block;
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-bottom: 6px;
-            font-weight: 600;
-        }
-
-        .badge-wiki { background: #fff9c4; color: #f57f17; }
-        .badge-web  { background: #e3f2fd; color: #1565c0; }
-        .badge-ai   { background: #f3e5f5; color: #6a1b9a; }
-
-        /* ── Input Area ────────────────────────────────── */
+        /* ── Input Area ──────────────────────────────── */
         .input-area {
-            width: 100%;
-            max-width: 780px;
-            padding: 12px 16px 20px;
+            width: 100%; max-width: 780px;
+            padding: 10px 16px 18px;
             background: var(--bg);
         }
 
         .input-row {
-            display: flex;
-            align-items: flex-end;
-            gap: 10px;
-            background: white;
-            border: 1.5px solid var(--border);
-            border-radius: 24px;
-            padding: 8px 8px 8px 18px;
-            box-shadow: var(--shadow);
-            transition: border-color 0.2s;
+            display: flex; align-items: flex-end; gap: 10px;
+            background: white; border: 1.5px solid var(--border);
+            border-radius: 24px; padding: 8px 8px 8px 18px;
+            box-shadow: var(--shadow); transition: border-color 0.2s;
         }
 
         .input-row:focus-within { border-color: var(--primary); }
 
         #user-input {
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 15px;
-            resize: none;
-            font-family: inherit;
-            background: transparent;
-            max-height: 120px;
-            min-height: 24px;
-            line-height: 1.5;
-            color: var(--text);
+            flex: 1; border: none; outline: none; font-size: 15px;
+            resize: none; font-family: inherit; background: transparent;
+            max-height: 120px; min-height: 24px; line-height: 1.5; color: var(--text);
         }
 
         #send-btn {
-            width: 40px; height: 40px;
-            background: var(--primary);
-            border: none;
-            border-radius: 50%;
-            color: white;
-            font-size: 18px;
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-            transition: background 0.2s, transform 0.1s;
+            width: 40px; height: 40px; background: var(--primary);
+            border: none; border-radius: 50%; color: white; font-size: 18px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: background 0.2s, transform 0.1s;
         }
 
         #send-btn:hover    { background: var(--primary-dark); transform: scale(1.05); }
         #send-btn:disabled { background: #aaa; cursor: not-allowed; transform: none; }
 
+        .toolbar {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 8px;
+        }
+
+        .toolbar-btn {
+            background: none; border: 1px solid var(--border);
+            border-radius: 20px; padding: 5px 14px;
+            font-size: 12px; color: var(--muted); cursor: pointer;
+            font-family: inherit; transition: background 0.2s;
+        }
+
+        .toolbar-btn:hover { background: #ffe0e0; border-color: #ef9a9a; color: #c62828; }
+
+        #export-btn:hover { background: var(--primary-light); border-color: var(--border); color: var(--primary-dark); }
+
         .input-hint {
-            font-size: 12px;
-            color: var(--muted);
-            text-align: center;
-            margin-top: 8px;
+            font-size: 12px; color: var(--muted);
+            text-align: center; margin-top: 7px;
         }
 
-        /* ── Clear Button ──────────────────────────────── */
-        #clear-btn {
-            background: none;
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 5px 14px;
-            font-size: 12px;
-            color: var(--muted);
-            cursor: pointer;
-            display: block;
-            margin: 0 auto 8px;
-            transition: background 0.2s;
-        }
-
-        #clear-btn:hover { background: #ffe0e0; border-color: #ef9a9a; color: #c62828; }
-
-        /* ── Scrollbar ─────────────────────────────────── */
+        /* ── Scrollbar ───────────────────────────────── */
         #chat-window::-webkit-scrollbar       { width: 5px; }
         #chat-window::-webkit-scrollbar-track { background: transparent; }
         #chat-window::-webkit-scrollbar-thumb { background: #c8e6c9; border-radius: 10px; }
 
-        /* ── Responsive ────────────────────────────────── */
         @media (max-width: 600px) {
             .bubble { max-width: 88%; font-size: 14px; }
-            header .title-group h1 { font-size: 16px; }
+            header .title-group h1 { font-size: 15px; }
+            .mode-btn { font-size: 11px; padding: 6px 6px; }
         }
     </style>
 </head>
 <body>
 
-<!-- ── Header ─────────────────────────────────────── -->
+<!-- ── Header ──────────────────────────────────────── -->
 <header>
     <div class="logo">🌿</div>
     <div class="title-group">
         <h1>Environmental Science Chatbot</h1>
-        <p>Powered by Wikipedia · Web · Groq AI</p>
+        <p>Wikipedia · Web · Groq AI — Trent University</p>
     </div>
     <div class="status-dot" title="Online"></div>
 </header>
 
+<!-- ── Feature 1: Live Env Data Bar ───────────────── -->
+<div id="env-bar">
+    <div class="env-item">📍 <span>Peterborough, ON</span></div>
+    <div class="env-item">🌫 AQI: <span id="aqi-badge">–</span></div>
+    <div class="env-item">🟤 PM2.5: <span id="pm25">–</span> µg/m³</div>
+    <div class="env-item">💨 NO₂: <span id="no2">–</span> µg/m³</div>
+    <div class="env-item">🔥 CO: <span id="co">–</span> µg/m³</div>
+</div>
+
+<!-- ── Feature 2: Mode Bar ────────────────────────── -->
+<div class="mode-bar">
+    <button class="mode-btn active" onclick="setMode('general', this)">🌿 General</button>
+    <button class="mode-btn" onclick="setMode('research', this)">🔬 Research (eDNA/MSX)</button>
+    <button class="mode-btn" onclick="setMode('policy', this)">📋 Policy</button>
+</div>
+
 <!-- ── Chat Window ────────────────────────────────── -->
 <div class="chat-wrapper">
     <div id="chat-window">
-        <!-- Welcome card -->
         <div class="welcome" id="welcome-card">
             <h2>👋 Welcome! How can I help you today?</h2>
-            <p>Ask me anything about environmental science — ecosystems,<br>
-               climate change, biodiversity, water quality, and more.</p>
+            <p>Ask me anything about environmental science. Switch modes above<br>
+               for specialized eDNA/MSX research or policy-focused answers.</p>
             <div class="suggestion-chips">
                 <span class="chip" onclick="useChip(this)">What is MSX disease?</span>
                 <span class="chip" onclick="useChip(this)">Explain eDNA surveillance</span>
                 <span class="chip" onclick="useChip(this)">Oyster disease monitoring</span>
                 <span class="chip" onclick="useChip(this)">Define ecological integrity</span>
-                <span class="chip" onclick="useChip(this)">Marine Protected Areas</span>
+                <span class="chip" onclick="useChip(this)">Marine Protected Areas policy</span>
             </div>
         </div>
     </div>
@@ -344,22 +389,56 @@
 
 <!-- ── Input Area ─────────────────────────────────── -->
 <div class="input-area">
-    <button id="clear-btn" onclick="clearChat()">🗑 Clear chat</button>
+    <div class="toolbar">
+        <button class="toolbar-btn" id="export-btn" onclick="exportChat()">📄 Export Chat</button>
+        <button class="toolbar-btn" onclick="clearChat()">🗑 Clear Chat</button>
+    </div>
     <div class="input-row">
         <textarea id="user-input" rows="1"
             placeholder="Ask an environmental science question..."
             oninput="autoResize(this)"
             onkeydown="handleKey(event)"></textarea>
-        <button id="send-btn" onclick="submitQuery()" title="Send (Enter)">➤</button>
+        <button id="send-btn" onclick="submitQuery()" title="Send">➤</button>
     </div>
-    <p class="input-hint">Press <strong>Enter</strong> to send · <strong>Shift+Enter</strong> for new line</p>
+    <p class="input-hint">Enter to send · Shift+Enter for new line</p>
 </div>
 
 <script>
     // ── State ──────────────────────────────────────────
-    let history   = [];   // [{role, content}, ...]
-    let lastQuery = "";
+    let history    = [];
+    let lastQuery  = "";
+    let currentMode = "general";
     let isStreaming = false;
+
+    // ── Feature 1: Load Env Data ───────────────────────
+    async function loadEnvData() {
+        try {
+            const res  = await fetch("/env-data");
+            const data = await res.json();
+            if (data.error) return;
+
+            const badge = document.getElementById("aqi-badge");
+            badge.textContent    = `${data.aqi} — ${data.label}`;
+            badge.style.background = data.color;
+            badge.style.color      = "white";
+
+            document.getElementById("pm25").textContent = data.pm2_5;
+            document.getElementById("no2").textContent  = data.no2;
+            document.getElementById("co").textContent   = data.co;
+        } catch (e) {
+            console.warn("Env data unavailable:", e);
+        }
+    }
+
+    loadEnvData();
+    setInterval(loadEnvData, 5 * 60 * 1000); // refresh every 5 min
+
+    // ── Feature 2: Mode Toggle ─────────────────────────
+    function setMode(mode, btn) {
+        currentMode = mode;
+        document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+    }
 
     // ── Helpers ────────────────────────────────────────
     function autoResize(el) {
@@ -368,10 +447,7 @@
     }
 
     function handleKey(e) {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            submitQuery();
-        }
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitQuery(); }
     }
 
     function useChip(el) {
@@ -393,20 +469,64 @@
     }
 
     function cleanText(text) {
-        // Remove emoji+bold source prefixes before markdown rendering
         return text
             .replace(/^📖 \*\*Wikipedia:\*\* ?/, "")
-            .replace(/^🌍 \*\*Web:\*\* ?/, "");
+            .replace(/^🌍 \*\*Web:\*\* ?/, "")
+            .replace(/CITE:[\s\S]*$/, "")   // strip citation before rendering
+            .trim();
     }
 
-    function addMessage(role, content, sourceLabel = "") {
-        const win = document.getElementById("chat-window");
+    function extractCite(text) {
+        const match = text.match(/CITE:\s*(.+)/s);
+        return match ? match[1].trim() : null;
+    }
 
-        // Hide welcome card on first message
+    // ── Feature 3: Export ──────────────────────────────
+    function exportChat() {
+        const messages = document.querySelectorAll(".message");
+        if (!messages.length) return alert("Nothing to export yet.");
+
+        let text = "Environmental Science Chatbot — Session Export\n";
+        text += "=".repeat(52) + "\n";
+        text += `Mode: ${currentMode} | Date: ${new Date().toLocaleString()}\n`;
+        text += "=".repeat(52) + "\n\n";
+
+        messages.forEach(msg => {
+            const role   = msg.classList.contains("user") ? "You" : "Bot";
+            const bubble = msg.querySelector(".bubble");
+            if (bubble) text += `[${role}]:\n${bubble.innerText}\n\n`;
+        });
+
+        const blob = new Blob([text], { type: "text/plain" });
+        const a    = document.createElement("a");
+        a.href     = URL.createObjectURL(blob);
+        a.download = `env-chat-${Date.now()}.txt`;
+        a.click();
+    }
+
+    function clearChat() {
+        history = []; lastQuery = "";
+        document.getElementById("chat-window").innerHTML = `
+            <div class="welcome" id="welcome-card">
+                <h2>👋 Welcome! How can I help you today?</h2>
+                <p>Ask me anything about environmental science. Switch modes above<br>
+                   for specialized eDNA/MSX research or policy-focused answers.</p>
+                <div class="suggestion-chips">
+                    <span class="chip" onclick="useChip(this)">What is MSX disease?</span>
+                    <span class="chip" onclick="useChip(this)">Explain eDNA surveillance</span>
+                    <span class="chip" onclick="useChip(this)">Oyster disease monitoring</span>
+                    <span class="chip" onclick="useChip(this)">Define ecological integrity</span>
+                    <span class="chip" onclick="useChip(this)">Marine Protected Areas policy</span>
+                </div>
+            </div>`;
+    }
+
+    function addMessage(role, content) {
+        const win = document.getElementById("chat-window");
         const welcome = document.getElementById("welcome-card");
         if (welcome) welcome.style.display = "none";
 
-        const msg = document.createElement("div");
+        const msg    = document.createElement("div");
         msg.className = `message ${role}`;
 
         const avatar = document.createElement("div");
@@ -415,24 +535,12 @@
 
         const bubble = document.createElement("div");
         bubble.className = "bubble";
-
-        if (role === "bot" && sourceLabel) {
-            bubble.innerHTML = sourceLabel;
-        }
-
-        if (role === "user") {
-            bubble.textContent = content;
-        } else {
-            const mdDiv = document.createElement("div");
-            mdDiv.innerHTML = marked.parse(cleanText(content));
-            bubble.appendChild(mdDiv);
-        }
+        bubble.textContent = content;
 
         msg.appendChild(avatar);
         msg.appendChild(bubble);
         win.appendChild(msg);
         scrollToBottom();
-        return bubble;
     }
 
     function addTypingIndicator() {
@@ -443,9 +551,7 @@
         msg.innerHTML = `
             <div class="avatar">🌿</div>
             <div class="bubble">
-                <div class="dot"></div>
-                <div class="dot"></div>
-                <div class="dot"></div>
+                <div class="dot"></div><div class="dot"></div><div class="dot"></div>
             </div>`;
         win.appendChild(msg);
         scrollToBottom();
@@ -454,25 +560,6 @@
     function removeTypingIndicator() {
         const el = document.getElementById("typing-indicator");
         if (el) el.remove();
-    }
-
-    function clearChat() {
-        history   = [];
-        lastQuery = "";
-        const win = document.getElementById("chat-window");
-        win.innerHTML = `
-            <div class="welcome" id="welcome-card">
-                <h2>👋 Welcome! How can I help you today?</h2>
-                <p>Ask me anything about environmental science — ecosystems,<br>
-                   climate change, biodiversity, water quality, and more.</p>
-                <div class="suggestion-chips">
-                    <span class="chip" onclick="useChip(this)">What is MSX disease?</span>
-                    <span class="chip" onclick="useChip(this)">Explain eDNA surveillance</span>
-                    <span class="chip" onclick="useChip(this)">Oyster disease monitoring</span>
-                    <span class="chip" onclick="useChip(this)">Define ecological integrity</span>
-                    <span class="chip" onclick="useChip(this)">Marine Protected Areas</span>
-                </div>
-            </div>`;
     }
 
     // ── Main Submit ────────────────────────────────────
@@ -484,18 +571,13 @@
         const userText = inputEl.value.trim();
         if (!userText) return;
 
-        // Clear input
         inputEl.value = "";
         inputEl.style.height = "auto";
-
-        // Show user bubble
         addMessage("user", userText);
 
-        // Lock UI
-        isStreaming  = true;
+        isStreaming = true;
         sendBtn.disabled = true;
         sendBtn.textContent = "⏳";
-
         addTypingIndicator();
 
         try {
@@ -505,23 +587,23 @@
                 body: JSON.stringify({
                     message:    userText,
                     history:    history,
-                    last_query: lastQuery
+                    last_query: lastQuery,
+                    mode:       currentMode  // ✅ Feature 2
                 })
             });
 
             removeTypingIndicator();
-
-            if (!res.body) {
-                addMessage("bot", "⚠️ No response received.");
-                return;
-            }
+            if (!res.body) { addMessage("bot", "⚠️ No response received."); return; }
 
             const reader  = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText  = "";
 
-            // Create bot bubble for streaming
+            // Build bot bubble
             const win = document.getElementById("chat-window");
+            const welcome = document.getElementById("welcome-card");
+            if (welcome) welcome.style.display = "none";
+
             const msg = document.createElement("div");
             msg.className = "message bot";
 
@@ -533,13 +615,15 @@
             bubble.className = "bubble";
 
             const sourceDiv = document.createElement("div");
-            sourceDiv.id = "source-label";
-
-            const mdDiv = document.createElement("div");
-            mdDiv.id = "stream-content";
+            const mdDiv     = document.createElement("div");
+            const citeDiv   = document.createElement("div"); // Feature 4
+            const actDiv    = document.createElement("div"); // Feature 5
+            actDiv.className = "bubble-actions";
 
             bubble.appendChild(sourceDiv);
             bubble.appendChild(mdDiv);
+            bubble.appendChild(citeDiv);
+            bubble.appendChild(actDiv);
             msg.appendChild(avatar);
             msg.appendChild(bubble);
             win.appendChild(msg);
@@ -549,31 +633,55 @@
                 const { done, value } = await reader.read();
                 if (done) break;
                 fullText += decoder.decode(value, { stream: true });
-
-                // Update source badge once we have enough text
-                if (fullText.length > 5) {
-                    sourceDiv.innerHTML = detectSource(fullText);
-                }
-
-                // Render markdown progressively
+                if (fullText.length > 5) sourceDiv.innerHTML = detectSource(fullText);
                 mdDiv.innerHTML = marked.parse(cleanText(fullText));
                 scrollToBottom();
             }
 
-            // ✅ Update conversation history for next turn
+            // ── Feature 4: Citation Box ──────────────
+            const cite = extractCite(fullText);
+            if (cite) {
+                citeDiv.className = "cite-box";
+                citeDiv.innerHTML = `<strong>📚 Suggested Citation:</strong> ${cite}`;
+            }
+
+            // ── Feature 5: Action Buttons ────────────
+            // Only show for Groq AI responses (not Wikipedia/Web)
+            if (!fullText.startsWith("📖") && !fullText.startsWith("🌍")) {
+                const simplifyBtn = document.createElement("button");
+                simplifyBtn.className   = "action-btn";
+                simplifyBtn.textContent = "🧑‍🏫 Simplify for public";
+                simplifyBtn.onclick     = () => {
+                    document.getElementById("user-input").value =
+                        `Explain this in simple terms for a non-scientist: "${cleanText(fullText).slice(0, 300)}"`;
+                    submitQuery();
+                };
+
+                const followUpBtn = document.createElement("button");
+                followUpBtn.className   = "action-btn";
+                followUpBtn.textContent = "🔎 Go deeper";
+                followUpBtn.onclick     = () => {
+                    document.getElementById("user-input").value =
+                        `Give me more technical detail about: "${cleanText(fullText).slice(0, 200)}"`;
+                    submitQuery();
+                };
+
+                actDiv.appendChild(simplifyBtn);
+                actDiv.appendChild(followUpBtn);
+            }
+
+            // Update history
             history.push({ role: "user",      content: userText });
             history.push({ role: "assistant", content: fullText });
             lastQuery = userText;
-
-            // Cap history at last 10 turns (20 messages) to avoid token overflow
             if (history.length > 20) history = history.slice(-20);
 
         } catch (err) {
             removeTypingIndicator();
             addMessage("bot", `⚠️ Error: ${err.message}`);
         } finally {
-            isStreaming       = false;
-            sendBtn.disabled  = false;
+            isStreaming = false;
+            sendBtn.disabled = false;
             sendBtn.textContent = "➤";
             inputEl.focus();
         }

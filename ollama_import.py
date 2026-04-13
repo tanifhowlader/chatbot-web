@@ -5,7 +5,7 @@ import requests
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
 import wikipediaapi
-from ddgs import DDGS
+from ddgs import DDGS  # ✅ renamed from duckduckgo_search
 from groq import Groq
 
 load_dotenv()
@@ -22,7 +22,6 @@ wiki = wikipediaapi.Wikipedia(
 
 DEFINITION_TRIGGERS = ["what is", "define", "explain", "meaning of", "definition of"]
 
-# ── Feature 2: Mode-based system prompts ──────────────────────────────────────
 SYSTEM_PROMPTS = {
     "general": (
         "You are an expert environmental science assistant. "
@@ -117,28 +116,36 @@ def groq_stream(messages: list):
 # CORE PIPELINE
 # ─────────────────────────────────────────────
 
-def generate_stream(user_input: str, history: list, last_query: str, mode: str):
+def generate_stream(user_input: str, history: list, last_query: str, mode: str, force_ai: bool = False):
+    """
+    Three-tier fallback pipeline.
+    force_ai=True skips Wikipedia + DuckDuckGo entirely → always uses Groq.
+    This allows Research/Policy mode prompts to fully activate.
+    """
     clean_prompt = clean_query(user_input)
 
     if clean_prompt.lower() == "definition" and last_query:
         clean_prompt = f"define {last_query}"
 
-    # ── Tier 1: Wikipedia ───────────────────────────────────────────────────
-    if is_definition_query(clean_prompt):
-        topic = extract_topic(clean_prompt)
-        wiki_result = wikipedia_search(topic)
-        if wiki_result:
-            yield wiki_result
+    if not force_ai:
+        # ── Tier 1: Wikipedia ───────────────────────────────────────────────
+        if is_definition_query(clean_prompt):
+            topic = extract_topic(clean_prompt)
+            wiki_result = wikipedia_search(topic)
+            if wiki_result:
+                yield wiki_result
+                return
+
+        # ── Tier 2: DuckDuckGo ─────────────────────────────────────────────
+        ddg_result = duckduckgo_search(clean_prompt)
+        if ddg_result:
+            yield ddg_result
             return
 
-    # ── Tier 2: DuckDuckGo ─────────────────────────────────────────────────
-    ddg_result = duckduckgo_search(clean_prompt)
-    if ddg_result:
-        yield ddg_result
-        return
-
     # ── Tier 3: Groq LLM ───────────────────────────────────────────────────
+    # Always reached when force_ai=True, regardless of mode
     try:
+        logging.info(f"🤖 Groq responding | mode={mode} | force_ai={force_ai}")
         messages = build_messages(history, clean_prompt, mode)
         yield from groq_stream(messages)
     except Exception as e:
@@ -162,9 +169,9 @@ def health():
 @app.route("/debug")
 def debug():
     return jsonify({
-        "model":       os.getenv("GROQ_MODEL", "NOT SET"),
+        "model":        os.getenv("GROQ_MODEL", "NOT SET"),
         "groq_key_set": bool(os.getenv("GROQ_API_KEY")),
-        "port":        os.environ.get("PORT", "NOT SET")
+        "port":         os.environ.get("PORT", "NOT SET")
     })
 
 
@@ -174,9 +181,9 @@ def chat():
     user_input = data.get("message", "").strip()
     history    = data.get("history", [])
     last_query = data.get("last_query", "")
-    mode       = data.get("mode", "general")  # ✅ Feature 2: receive mode
+    mode       = data.get("mode", "general")
+    force_ai   = data.get("force_ai", False)  # ✅ new
 
-    # Validate history
     if not isinstance(history, list):
         history = []
     history = [m for m in history if isinstance(m, dict) and "role" in m and "content" in m]
@@ -186,18 +193,16 @@ def chat():
     if len(user_input) > 500:
         return jsonify({"response": "⚠️ Message too long. Keep it under 500 characters."}), 400
 
-    logging.info(f"💬 User input: {user_input} | Mode: {mode}")
+    logging.info(f"💬 User: {user_input} | Mode: {mode} | Force AI: {force_ai}")
 
     return Response(
-        stream_with_context(generate_stream(user_input, history, last_query, mode)),
+        stream_with_context(generate_stream(user_input, history, last_query, mode, force_ai)),
         mimetype="text/plain"
     )
 
 
-# ── Feature 1: Live Environmental Data ────────────────────────────────────────
 @app.route("/env-data")
 def env_data():
-    """Returns live air quality + weather for Peterborough, ON (Trent University)."""
     try:
         r = requests.get(
             "https://air-quality-api.open-meteo.com/v1/air-quality",
@@ -211,13 +216,12 @@ def env_data():
         r.raise_for_status()
         data = r.json().get("current", {})
 
-        # AQI label
         aqi = data.get("european_aqi", 0)
-        if   aqi <= 20:  label, color = "Good",      "#2e7d32"
-        elif aqi <= 40:  label, color = "Fair",      "#f9a825"
-        elif aqi <= 60:  label, color = "Moderate",  "#e65100"
-        elif aqi <= 80:  label, color = "Poor",      "#b71c1c"
-        else:            label, color = "Very Poor", "#6a1b9a"
+        if   aqi <= 20: label, color = "Good",      "#2e7d32"
+        elif aqi <= 40: label, color = "Fair",      "#f9a825"
+        elif aqi <= 60: label, color = "Moderate",  "#e65100"
+        elif aqi <= 80: label, color = "Poor",      "#b71c1c"
+        else:           label, color = "Very Poor", "#6a1b9a"
 
         return jsonify({
             "aqi":   aqi,
@@ -235,5 +239,6 @@ def env_data():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 

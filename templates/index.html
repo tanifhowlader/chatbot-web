@@ -32,7 +32,6 @@
             align-items: center;
         }
 
-        /* ── Header ─────────────────────────────────── */
         header {
             width: 100%;
             background: var(--primary);
@@ -46,24 +45,19 @@
         }
 
         .logo { font-size: 26px; }
-
         .title-group h1 { font-size: 17px; font-weight: 700; }
         .title-group p  { font-size: 11px; opacity: 0.8; margin-top: 2px; }
 
         .status-dot {
             width: 9px; height: 9px;
-            background: #69f0ae;
-            border-radius: 50%;
+            background: #69f0ae; border-radius: 50%;
             margin-left: auto;
             box-shadow: 0 0 6px #69f0ae;
             animation: pulse 2s infinite;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
-        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-        /* ── Feature 1: Env Data Bar ─────────────────── */
         #env-bar {
             width: 100%;
             background: #1b5e20;
@@ -79,73 +73,46 @@
         #env-bar .env-item { display: flex; align-items: center; gap: 5px; }
         #env-bar .env-item span { opacity: 0.75; }
         #aqi-badge {
-            padding: 2px 10px;
-            border-radius: 10px;
-            font-weight: 700;
-            font-size: 12px;
-            background: #69f0ae;
-            color: #1b1b1b;
+            padding: 2px 10px; border-radius: 10px;
+            font-weight: 700; font-size: 12px;
+            background: #69f0ae; color: #1b1b1b;
         }
 
-        /* ── Feature 2: Mode Bar ─────────────────────── */
         .mode-bar {
-            width: 100%;
-            max-width: 780px;
-            display: flex;
-            gap: 8px;
+            width: 100%; max-width: 780px;
+            display: flex; gap: 8px;
             padding: 10px 16px 0;
         }
 
         .mode-btn {
-            flex: 1;
-            padding: 7px 10px;
+            flex: 1; padding: 7px 10px;
             border: 1.5px solid var(--border);
-            border-radius: 20px;
-            background: white;
-            font-size: 13px;
-            cursor: pointer;
-            color: var(--muted);
-            transition: all 0.2s;
+            border-radius: 20px; background: white;
+            font-size: 13px; cursor: pointer;
+            color: var(--muted); transition: all 0.2s;
             font-family: inherit;
         }
 
-        .mode-btn.active {
-            background: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
+        .mode-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
         .mode-btn:hover:not(.active) { background: var(--primary-light); }
 
-        /* ── Chat Container ──────────────────────────── */
         .chat-wrapper {
-            width: 100%;
-            max-width: 780px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 12px 16px 0;
-            overflow: hidden;
+            width: 100%; max-width: 780px;
+            flex: 1; display: flex; flex-direction: column;
+            padding: 12px 16px 0; overflow: hidden;
         }
 
         #chat-window {
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding-bottom: 12px;
+            flex: 1; overflow-y: auto;
+            display: flex; flex-direction: column;
+            gap: 12px; padding-bottom: 12px;
             scroll-behavior: smooth;
         }
 
-        /* ── Welcome Card ────────────────────────────── */
         .welcome {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px 24px;
-            text-align: center;
-            box-shadow: var(--shadow);
+            background: white; border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 20px 24px;
+            text-align: center; box-shadow: var(--shadow);
         }
 
         .welcome h2 { color: var(--primary); font-size: 17px; margin-bottom: 8px; }
@@ -159,25 +126,21 @@
         .chip {
             background: var(--primary-light);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 6px 14px;
-            font-size: 13px;
-            color: var(--primary-dark);
-            cursor: pointer;
-            transition: background 0.2s, transform 0.1s;
+            border-radius: 20px; padding: 6px 14px;
+            font-size: 13px; color: var(--primary-dark);
+            cursor: pointer; transition: background 0.2s, transform 0.1s;
         }
 
         .chip:hover { background: #c8e6c9; transform: translateY(-1px); }
 
-        /* ── Bubbles ─────────────────────────────────── */
         .message {
-            display: flex; align-items: flex-end; gap: 8px;
-            animation: fadeIn 0.25s ease;
+            display: flex; align-items: flex-end;
+            gap: 8px; animation: fadeIn 0.25s ease;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0); }
+            from { opacity:0; transform:translateY(6px); }
+            to   { opacity:1; transform:translateY(0); }
         }
 
         .message.user { flex-direction: row-reverse; }
@@ -211,10 +174,9 @@
         .bubble p:last-child { margin-bottom: 0; }
         .bubble strong     { color: var(--primary-dark); }
         .bubble code       { background: #f5f5f5; padding: 2px 5px; border-radius: 4px; font-size: 13px; }
-        .bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
+        .bubble ul,.bubble ol { padding-left: 20px; margin: 6px 0; }
         .bubble li         { margin-bottom: 4px; }
 
-        /* ── Source Badge ────────────────────────────── */
         .source-badge {
             display: inline-block; font-size: 11px;
             padding: 2px 8px; border-radius: 10px;
@@ -225,43 +187,30 @@
         .badge-web  { background: #e3f2fd; color: #1565c0; }
         .badge-ai   { background: #f3e5f5; color: #6a1b9a; }
 
-        /* ── Feature 4: Citation Box ─────────────────── */
         .cite-box {
-            margin-top: 10px;
-            padding: 8px 12px;
-            background: #f9fbe7;
-            border-left: 3px solid #aed581;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #555;
-            font-style: italic;
+            margin-top: 10px; padding: 8px 12px;
+            background: #f9fbe7; border-left: 3px solid #aed581;
+            border-radius: 6px; font-size: 12px;
+            color: #555; font-style: italic;
         }
 
         .cite-box strong { font-style: normal; color: var(--primary-dark); }
 
-        /* ── Feature 5: Action Buttons ───────────────── */
         .bubble-actions {
             display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
         }
 
         .action-btn {
             background: var(--primary-light);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 4px 12px;
-            font-size: 12px;
-            color: var(--primary-dark);
-            cursor: pointer;
-            font-family: inherit;
-            transition: background 0.2s;
+            border: 1px solid var(--border); border-radius: 14px;
+            padding: 4px 12px; font-size: 12px;
+            color: var(--primary-dark); cursor: pointer;
+            font-family: inherit; transition: background 0.2s;
         }
 
         .action-btn:hover { background: #c8e6c9; }
 
-        /* ── Typing Indicator ────────────────────────── */
-        .typing .bubble {
-            display: flex; align-items: center; gap: 5px; padding: 14px 18px;
-        }
+        .typing .bubble { display: flex; align-items: center; gap: 5px; padding: 14px 18px; }
 
         .dot {
             width: 8px; height: 8px; background: #aaa;
@@ -272,19 +221,17 @@
         .dot:nth-child(3) { animation-delay: 0.4s; }
 
         @keyframes bounce {
-            0%, 80%, 100% { transform: translateY(0); }
-            40%            { transform: translateY(-6px); background: var(--primary); }
+            0%,80%,100% { transform:translateY(0); }
+            40%          { transform:translateY(-6px); background:var(--primary); }
         }
 
-        /* ── Input Area ──────────────────────────────── */
         .input-area {
             width: 100%; max-width: 780px;
-            padding: 10px 16px 18px;
-            background: var(--bg);
+            padding: 10px 16px 18px; background: var(--bg);
         }
 
         .input-row {
-            display: flex; align-items: flex-end; gap: 10px;
+            display: flex; align-items: flex-end; gap: 8px;
             background: white; border: 1.5px solid var(--border);
             border-radius: 24px; padding: 8px 8px 8px 18px;
             box-shadow: var(--shadow); transition: border-color 0.2s;
@@ -295,13 +242,52 @@
         #user-input {
             flex: 1; border: none; outline: none; font-size: 15px;
             resize: none; font-family: inherit; background: transparent;
-            max-height: 120px; min-height: 24px; line-height: 1.5; color: var(--text);
+            max-height: 120px; min-height: 24px;
+            line-height: 1.5; color: var(--text);
         }
 
+        /* ✅ Force AI toggle button */
+        #ai-toggle {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            border: 1.5px solid var(--border);
+            background: white;
+            font-size: 17px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        #ai-toggle.active {
+            background: #6a1b9a;
+            border-color: #6a1b9a;
+        }
+
+        /* ✅ Force AI tooltip label */
+        .ai-toggle-wrap {
+            position: relative;
+            display: flex; align-items: center;
+        }
+
+        .ai-toggle-wrap .tooltip {
+            position: absolute;
+            bottom: 48px; right: 0;
+            background: #333; color: white;
+            font-size: 11px; padding: 5px 10px;
+            border-radius: 8px; white-space: nowrap;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .ai-toggle-wrap:hover .tooltip { opacity: 1; }
+
         #send-btn {
-            width: 40px; height: 40px; background: var(--primary);
-            border: none; border-radius: 50%; color: white; font-size: 18px;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            width: 38px; height: 38px;
+            background: var(--primary); border: none;
+            border-radius: 50%; color: white; font-size: 18px;
+            cursor: pointer; display: flex;
+            align-items: center; justify-content: center;
             flex-shrink: 0; transition: background 0.2s, transform 0.1s;
         }
 
@@ -320,16 +306,25 @@
             font-family: inherit; transition: background 0.2s;
         }
 
-        .toolbar-btn:hover { background: #ffe0e0; border-color: #ef9a9a; color: #c62828; }
+        .toolbar-btn:hover         { background: #ffe0e0; border-color: #ef9a9a; color: #c62828; }
+        #export-btn:hover          { background: var(--primary-light); border-color: var(--border); color: var(--primary-dark); }
 
-        #export-btn:hover { background: var(--primary-light); border-color: var(--border); color: var(--primary-dark); }
-
-        .input-hint {
-            font-size: 12px; color: var(--muted);
-            text-align: center; margin-top: 7px;
+        /* ✅ Force AI status bar */
+        #ai-status-bar {
+            display: none;
+            background: #f3e5f5;
+            border: 1px solid #ce93d8;
+            border-radius: 10px;
+            padding: 5px 14px;
+            font-size: 12px;
+            color: #6a1b9a;
+            text-align: center;
+            margin-bottom: 8px;
+            font-weight: 600;
         }
 
-        /* ── Scrollbar ───────────────────────────────── */
+        .input-hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 7px; }
+
         #chat-window::-webkit-scrollbar       { width: 5px; }
         #chat-window::-webkit-scrollbar-track { background: transparent; }
         #chat-window::-webkit-scrollbar-thumb { background: #c8e6c9; border-radius: 10px; }
@@ -343,7 +338,6 @@
 </head>
 <body>
 
-<!-- ── Header ──────────────────────────────────────── -->
 <header>
     <div class="logo">🌿</div>
     <div class="title-group">
@@ -353,7 +347,6 @@
     <div class="status-dot" title="Online"></div>
 </header>
 
-<!-- ── Feature 1: Live Env Data Bar ───────────────── -->
 <div id="env-bar">
     <div class="env-item">📍 <span>Peterborough, ON</span></div>
     <div class="env-item">🌫 AQI: <span id="aqi-badge">–</span></div>
@@ -362,14 +355,12 @@
     <div class="env-item">🔥 CO: <span id="co">–</span> µg/m³</div>
 </div>
 
-<!-- ── Feature 2: Mode Bar ────────────────────────── -->
 <div class="mode-bar">
     <button class="mode-btn active" onclick="setMode('general', this)">🌿 General</button>
     <button class="mode-btn" onclick="setMode('research', this)">🔬 Research (eDNA/MSX)</button>
     <button class="mode-btn" onclick="setMode('policy', this)">📋 Policy</button>
 </div>
 
-<!-- ── Chat Window ────────────────────────────────── -->
 <div class="chat-wrapper">
     <div id="chat-window">
         <div class="welcome" id="welcome-card">
@@ -387,30 +378,41 @@
     </div>
 </div>
 
-<!-- ── Input Area ─────────────────────────────────── -->
 <div class="input-area">
     <div class="toolbar">
         <button class="toolbar-btn" id="export-btn" onclick="exportChat()">📄 Export Chat</button>
         <button class="toolbar-btn" onclick="clearChat()">🗑 Clear Chat</button>
     </div>
+
+    <!-- ✅ Force AI status bar -->
+    <div id="ai-status-bar">🤖 AI Mode ON — Web search bypassed. Groq will respond directly.</div>
+
     <div class="input-row">
         <textarea id="user-input" rows="1"
             placeholder="Ask an environmental science question..."
             oninput="autoResize(this)"
             onkeydown="handleKey(event)"></textarea>
+
+        <!-- ✅ Force AI toggle -->
+        <div class="ai-toggle-wrap">
+            <button id="ai-toggle" onclick="toggleForceAI()" title="Toggle AI mode">🤖</button>
+            <div class="tooltip">Force AI — skip web search</div>
+        </div>
+
         <button id="send-btn" onclick="submitQuery()" title="Send">➤</button>
     </div>
-    <p class="input-hint">Enter to send · Shift+Enter for new line</p>
+    <p class="input-hint">Enter to send · Shift+Enter for new line · 🤖 to force AI response</p>
 </div>
 
 <script>
     // ── State ──────────────────────────────────────────
-    let history    = [];
-    let lastQuery  = "";
+    let history     = [];
+    let lastQuery   = "";
     let currentMode = "general";
-    let isStreaming = false;
+    let forceAI     = false;      // ✅ new
+    let isStreaming  = false;
 
-    // ── Feature 1: Load Env Data ───────────────────────
+    // ── Feature 1: Live Env Data ───────────────────────
     async function loadEnvData() {
         try {
             const res  = await fetch("/env-data");
@@ -425,19 +427,32 @@
             document.getElementById("pm25").textContent = data.pm2_5;
             document.getElementById("no2").textContent  = data.no2;
             document.getElementById("co").textContent   = data.co;
-        } catch (e) {
-            console.warn("Env data unavailable:", e);
-        }
+        } catch (e) { console.warn("Env data unavailable:", e); }
     }
 
     loadEnvData();
-    setInterval(loadEnvData, 5 * 60 * 1000); // refresh every 5 min
+    setInterval(loadEnvData, 5 * 60 * 1000);
 
     // ── Feature 2: Mode Toggle ─────────────────────────
     function setMode(mode, btn) {
         currentMode = mode;
         document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
+    }
+
+    // ── ✅ Force AI Toggle ─────────────────────────────
+    function toggleForceAI() {
+        forceAI = !forceAI;
+        const btn    = document.getElementById("ai-toggle");
+        const status = document.getElementById("ai-status-bar");
+
+        if (forceAI) {
+            btn.classList.add("active");
+            status.style.display = "block";
+        } else {
+            btn.classList.remove("active");
+            status.style.display = "none";
+        }
     }
 
     // ── Helpers ────────────────────────────────────────
@@ -460,7 +475,8 @@
         win.scrollTop = win.scrollHeight;
     }
 
-    function detectSource(text) {
+    function detectSource(text, isForced) {
+        if (isForced) return '<span class="source-badge badge-ai">🤖 Groq AI</span>';
         if (text.startsWith("📖 **Wikipedia:**"))
             return '<span class="source-badge badge-wiki">📖 Wikipedia</span>';
         if (text.startsWith("🌍 **Web:**"))
@@ -472,7 +488,7 @@
         return text
             .replace(/^📖 \*\*Wikipedia:\*\* ?/, "")
             .replace(/^🌍 \*\*Web:\*\* ?/, "")
-            .replace(/CITE:[\s\S]*$/, "")   // strip citation before rendering
+            .replace(/CITE:[\s\S]*$/, "")
             .trim();
     }
 
@@ -488,7 +504,7 @@
 
         let text = "Environmental Science Chatbot — Session Export\n";
         text += "=".repeat(52) + "\n";
-        text += `Mode: ${currentMode} | Date: ${new Date().toLocaleString()}\n`;
+        text += `Mode: ${currentMode} | AI Mode: ${forceAI} | Date: ${new Date().toLocaleString()}\n`;
         text += "=".repeat(52) + "\n\n";
 
         messages.forEach(msg => {
@@ -521,28 +537,6 @@
             </div>`;
     }
 
-    function addMessage(role, content) {
-        const win = document.getElementById("chat-window");
-        const welcome = document.getElementById("welcome-card");
-        if (welcome) welcome.style.display = "none";
-
-        const msg    = document.createElement("div");
-        msg.className = `message ${role}`;
-
-        const avatar = document.createElement("div");
-        avatar.className = "avatar";
-        avatar.textContent = role === "user" ? "🧑" : "🌿";
-
-        const bubble = document.createElement("div");
-        bubble.className = "bubble";
-        bubble.textContent = content;
-
-        msg.appendChild(avatar);
-        msg.appendChild(bubble);
-        win.appendChild(msg);
-        scrollToBottom();
-    }
-
     function addTypingIndicator() {
         const win = document.getElementById("chat-window");
         const msg = document.createElement("div");
@@ -573,12 +567,26 @@
 
         inputEl.value = "";
         inputEl.style.height = "auto";
-        addMessage("user", userText);
 
-        isStreaming = true;
+        // Show user bubble
+        const win = document.getElementById("chat-window");
+        const welcome = document.getElementById("welcome-card");
+        if (welcome) welcome.style.display = "none";
+
+        const userMsg = document.createElement("div");
+        userMsg.className = "message user";
+        userMsg.innerHTML = `<div class="avatar" style="background:var(--primary);color:white">🧑</div>
+                             <div class="bubble" style="background:var(--bubble-user);color:white;border-bottom-right-radius:4px">${userText}</div>`;
+        win.appendChild(userMsg);
+        scrollToBottom();
+
+        isStreaming      = true;
         sendBtn.disabled = true;
         sendBtn.textContent = "⏳";
         addTypingIndicator();
+
+        // ✅ Capture forceAI state at time of submit
+        const wasForced = forceAI;
 
         try {
             const res = await fetch("/chat", {
@@ -588,21 +596,17 @@
                     message:    userText,
                     history:    history,
                     last_query: lastQuery,
-                    mode:       currentMode  // ✅ Feature 2
+                    mode:       currentMode,
+                    force_ai:   wasForced    // ✅ send to backend
                 })
             });
 
             removeTypingIndicator();
-            if (!res.body) { addMessage("bot", "⚠️ No response received."); return; }
+            if (!res.body) return;
 
             const reader  = res.body.getReader();
             const decoder = new TextDecoder();
             let fullText  = "";
-
-            // Build bot bubble
-            const win = document.getElementById("chat-window");
-            const welcome = document.getElementById("welcome-card");
-            if (welcome) welcome.style.display = "none";
 
             const msg = document.createElement("div");
             msg.className = "message bot";
@@ -611,13 +615,13 @@
             avatar.className = "avatar";
             avatar.textContent = "🌿";
 
-            const bubble = document.createElement("div");
+            const bubble    = document.createElement("div");
             bubble.className = "bubble";
 
             const sourceDiv = document.createElement("div");
             const mdDiv     = document.createElement("div");
-            const citeDiv   = document.createElement("div"); // Feature 4
-            const actDiv    = document.createElement("div"); // Feature 5
+            const citeDiv   = document.createElement("div");
+            const actDiv    = document.createElement("div");
             actDiv.className = "bubble-actions";
 
             bubble.appendChild(sourceDiv);
@@ -628,26 +632,26 @@
             msg.appendChild(bubble);
             win.appendChild(msg);
 
-            // Stream chunks
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
                 fullText += decoder.decode(value, { stream: true });
-                if (fullText.length > 5) sourceDiv.innerHTML = detectSource(fullText);
+                // ✅ pass wasForced to correctly label source badge
+                if (fullText.length > 5) sourceDiv.innerHTML = detectSource(fullText, wasForced);
                 mdDiv.innerHTML = marked.parse(cleanText(fullText));
                 scrollToBottom();
             }
 
-            // ── Feature 4: Citation Box ──────────────
+            // ── Citation Box ─────────────────────────
             const cite = extractCite(fullText);
             if (cite) {
                 citeDiv.className = "cite-box";
                 citeDiv.innerHTML = `<strong>📚 Suggested Citation:</strong> ${cite}`;
             }
 
-            // ── Feature 5: Action Buttons ────────────
-            // Only show for Groq AI responses (not Wikipedia/Web)
-            if (!fullText.startsWith("📖") && !fullText.startsWith("🌍")) {
+            // ── Action Buttons (AI responses only) ───
+            const isAIResponse = wasForced || (!fullText.startsWith("📖") && !fullText.startsWith("🌍"));
+            if (isAIResponse) {
                 const simplifyBtn = document.createElement("button");
                 simplifyBtn.className   = "action-btn";
                 simplifyBtn.textContent = "🧑‍🏫 Simplify for public";
@@ -657,20 +661,19 @@
                     submitQuery();
                 };
 
-                const followUpBtn = document.createElement("button");
-                followUpBtn.className   = "action-btn";
-                followUpBtn.textContent = "🔎 Go deeper";
-                followUpBtn.onclick     = () => {
+                const deeperBtn = document.createElement("button");
+                deeperBtn.className   = "action-btn";
+                deeperBtn.textContent = "🔎 Go deeper";
+                deeperBtn.onclick     = () => {
                     document.getElementById("user-input").value =
                         `Give me more technical detail about: "${cleanText(fullText).slice(0, 200)}"`;
                     submitQuery();
                 };
 
                 actDiv.appendChild(simplifyBtn);
-                actDiv.appendChild(followUpBtn);
+                actDiv.appendChild(deeperBtn);
             }
 
-            // Update history
             history.push({ role: "user",      content: userText });
             history.push({ role: "assistant", content: fullText });
             lastQuery = userText;
@@ -678,10 +681,10 @@
 
         } catch (err) {
             removeTypingIndicator();
-            addMessage("bot", `⚠️ Error: ${err.message}`);
+            console.error(err);
         } finally {
-            isStreaming = false;
-            sendBtn.disabled = false;
+            isStreaming       = false;
+            sendBtn.disabled  = false;
             sendBtn.textContent = "➤";
             inputEl.focus();
         }

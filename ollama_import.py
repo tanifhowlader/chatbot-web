@@ -1,57 +1,69 @@
 import os
 import re
 import logging
+import requests
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
 import wikipediaapi
 from duckduckgo_search import DDGS
 from groq import Groq
 
-# ✅ Load .env variables
 load_dotenv()
-
-# ✅ Setup logging
 logging.basicConfig(level=logging.INFO)
 
-# ✅ Initialize Groq Client
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-# ✅ Initialize Flask app
 app = Flask(__name__)
 
-# ✅ Wikipedia API — WIKI format (plain text, no HTML tags to strip)
 wiki = wikipediaapi.Wikipedia(
     language="en",
     user_agent="EnvironmentalScienceChatbot/1.0 (https://github.com/your-repo)",
     extract_format=wikipediaapi.ExtractFormat.WIKI
 )
 
-# ✅ FIX 3: Wikipedia only fires for these trigger phrases
 DEFINITION_TRIGGERS = ["what is", "define", "explain", "meaning of", "definition of"]
+
+# ── Feature 2: Mode-based system prompts ──────────────────────────────────────
+SYSTEM_PROMPTS = {
+    "general": (
+        "You are an expert environmental science assistant. "
+        "Answer clearly and concisely. If asked about topics outside "
+        "environmental science, politely redirect. "
+        "After your response, on a new line write exactly: "
+        "CITE: [APA-style suggested citation for the main topic discussed]"
+    ),
+    "research": (
+        "You are a marine biologist specializing in eDNA surveillance, "
+        "oyster diseases (MSX, Dermo), aquaculture monitoring, and "
+        "bioenvironmental assessment. Respond with scientific precision, "
+        "reference detection methodologies (qPCR, metabarcoding, eDNA filtration), "
+        "and suggest relevant monitoring techniques where applicable. "
+        "After your response, on a new line write exactly: "
+        "CITE: [APA-style suggested citation for the main topic discussed]"
+    ),
+    "policy": (
+        "You are an environmental policy advisor specializing in marine protected areas, "
+        "aquaculture regulation, and environmental monitoring frameworks. "
+        "Frame all answers around regulatory implications, management strategies, "
+        "and policy recommendations. "
+        "After your response, on a new line write exactly: "
+        "CITE: [APA-style suggested citation for the main topic discussed]"
+    )
+}
 
 # ─────────────────────────────────────────────
 # HELPERS
 # ─────────────────────────────────────────────
 
 def clean_query(query: str) -> str:
-    """
-    FIX 2: NO .lower() — preserves case for proper nouns (MSX, eDNA, etc.)
-    Only strips surrounding whitespace and trailing punctuation.
-    """
     return query.strip().rstrip("?.!")
 
 
 def is_definition_query(query: str) -> bool:
-    """FIX 3: Only returns True when query explicitly asks for a definition."""
     lowered = query.lower()
-    return any(lowered.startswith(trigger) for trigger in DEFINITION_TRIGGERS)
+    return any(trigger in lowered for trigger in DEFINITION_TRIGGERS)
 
 
 def extract_topic(query: str) -> str:
-    """
-    Strip definition trigger words while PRESERVING original casing of the topic.
-    e.g. 'what is MSX disease' → 'MSX disease'  (not 'msx disease')
-    """
     topic = query
     for trigger in DEFINITION_TRIGGERS:
         topic = re.sub(re.escape(trigger), "", topic, flags=re.IGNORECASE).strip()
@@ -59,10 +71,10 @@ def extract_topic(query: str) -> str:
 
 
 def wikipedia_search(topic: str) -> str | None:
-    logging.info(f"🔍 Wikipedia search: {topic}")  # ✅ will now log 'MSX' not 'msx'
+    logging.info(f"🔍 Wikipedia search: {topic}")
     page = wiki.page(topic)
     if page.exists():
-        summary = page.summary[:600]
+        summary = re.sub(r"\[\[.*?\]\]", "", page.summary[:600]).strip()
         return f"📖 **Wikipedia:** {summary}..."
     return None
 
@@ -79,25 +91,18 @@ def duckduckgo_search(query: str) -> str | None:
     return None
 
 
-def build_messages(history: list, prompt: str) -> list:
+def build_messages(history: list, prompt: str, mode: str = "general") -> list:
+    system_prompt = SYSTEM_PROMPTS.get(mode, SYSTEM_PROMPTS["general"])
     return [
-        {
-            "role": "system",
-            "content": (
-                "You are an expert environmental science assistant. "
-                "Answer clearly and concisely. If asked about topics outside "
-                "environmental science, politely redirect."
-            )
-        },
+        {"role": "system", "content": system_prompt},
         *history,
         {"role": "user", "content": prompt}
     ]
 
 
 def groq_stream(messages: list):
-    """FIX 1: Updated model — mistral-saba-24b is decommissioned."""
     completion = client.chat.completions.create(
-        model=os.getenv("GROQ_MODEL", "qwen/qwen3-32b"),  # ✅ FIX 1
+        model=os.getenv("GROQ_MODEL", "qwen/qwen3-32b"),
         messages=messages,
         stream=True,
         temperature=0.6,
@@ -112,31 +117,21 @@ def groq_stream(messages: list):
 # CORE PIPELINE
 # ─────────────────────────────────────────────
 
-def generate_stream(user_input: str, history: list, last_query: str):
-    """
-    Three-tier fallback:
-      1. Wikipedia  — ONLY for definition-style queries (FIX 3)
-      2. DuckDuckGo — full web search for everything else
-      3. Groq LLM   — with conversation history, updated model (FIX 1)
-    """
-    clean_prompt = clean_query(user_input)  # FIX 2: no lowercasing
+def generate_stream(user_input: str, history: list, last_query: str, mode: str):
+    clean_prompt = clean_query(user_input)
 
-    # Handle bare "definition" follow-up using client-supplied last_query
     if clean_prompt.lower() == "definition" and last_query:
         clean_prompt = f"define {last_query}"
 
     # ── Tier 1: Wikipedia ───────────────────────────────────────────────────
-    # FIX 3: Guard — Wikipedia only fires if user explicitly asks for a definition
     if is_definition_query(clean_prompt):
-        topic = extract_topic(clean_prompt)  # FIX 2: topic preserves original case
+        topic = extract_topic(clean_prompt)
         wiki_result = wikipedia_search(topic)
         if wiki_result:
             yield wiki_result
             return
-        # If Wikipedia misses, fall through to DuckDuckGo
 
     # ── Tier 2: DuckDuckGo ─────────────────────────────────────────────────
-    # Now correctly reached for bare queries like "MSX", "biology", "oyster disease"
     ddg_result = duckduckgo_search(clean_prompt)
     if ddg_result:
         yield ddg_result
@@ -144,7 +139,7 @@ def generate_stream(user_input: str, history: list, last_query: str):
 
     # ── Tier 3: Groq LLM ───────────────────────────────────────────────────
     try:
-        messages = build_messages(history, clean_prompt)
+        messages = build_messages(history, clean_prompt, mode)
         yield from groq_stream(messages)
     except Exception as e:
         logging.error(f"❌ Groq streaming error: {e}")
@@ -164,31 +159,81 @@ def health():
     return jsonify({"status": "ok"}), 200
 
 
+@app.route("/debug")
+def debug():
+    return jsonify({
+        "model":       os.getenv("GROQ_MODEL", "NOT SET"),
+        "groq_key_set": bool(os.getenv("GROQ_API_KEY")),
+        "port":        os.environ.get("PORT", "NOT SET")
+    })
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
-    data = request.json
+    data       = request.json
     user_input = data.get("message", "").strip()
     history    = data.get("history", [])
     last_query = data.get("last_query", "")
+    mode       = data.get("mode", "general")  # ✅ Feature 2: receive mode
+
+    # Validate history
+    if not isinstance(history, list):
+        history = []
+    history = [m for m in history if isinstance(m, dict) and "role" in m and "content" in m]
 
     if not user_input:
         return jsonify({"response": "⚠️ Please enter a message."}), 400
     if len(user_input) > 500:
         return jsonify({"response": "⚠️ Message too long. Keep it under 500 characters."}), 400
 
-    logging.info(f"💬 User input: {user_input}")
+    logging.info(f"💬 User input: {user_input} | Mode: {mode}")
 
     return Response(
-        stream_with_context(generate_stream(user_input, history, last_query)),
+        stream_with_context(generate_stream(user_input, history, last_query, mode)),
         mimetype="text/plain"
     )
 
 
-# ─────────────────────────────────────────────
-# ENTRY POINT
-# ─────────────────────────────────────────────
+# ── Feature 1: Live Environmental Data ────────────────────────────────────────
+@app.route("/env-data")
+def env_data():
+    """Returns live air quality + weather for Peterborough, ON (Trent University)."""
+    try:
+        r = requests.get(
+            "https://air-quality-api.open-meteo.com/v1/air-quality",
+            params={
+                "latitude":  44.3601,
+                "longitude": -78.3197,
+                "current":   "pm2_5,carbon_monoxide,nitrogen_dioxide,european_aqi"
+            },
+            timeout=8
+        )
+        r.raise_for_status()
+        data = r.json().get("current", {})
+
+        # AQI label
+        aqi = data.get("european_aqi", 0)
+        if   aqi <= 20:  label, color = "Good",      "#2e7d32"
+        elif aqi <= 40:  label, color = "Fair",      "#f9a825"
+        elif aqi <= 60:  label, color = "Moderate",  "#e65100"
+        elif aqi <= 80:  label, color = "Poor",      "#b71c1c"
+        else:            label, color = "Very Poor", "#6a1b9a"
+
+        return jsonify({
+            "aqi":   aqi,
+            "label": label,
+            "color": color,
+            "pm2_5": round(data.get("pm2_5", 0), 1),
+            "co":    round(data.get("carbon_monoxide", 0), 1),
+            "no2":   round(data.get("nitrogen_dioxide", 0), 1),
+        })
+    except Exception as e:
+        logging.error(f"❌ Env data error: {e}")
+        return jsonify({"error": "Unable to fetch environmental data."}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 

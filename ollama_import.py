@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import requests
+import concurrent.futures
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
 import wikipediaapi
@@ -20,16 +21,15 @@ wiki = wikipediaapi.Wikipedia(
     extract_format=wikipediaapi.ExtractFormat.WIKI
 )
 
-DEFINITION_TRIGGERS = ["what is", "define", "explain", "meaning of", "definition of"]
+# ✅ FIX 3: Removed "explain" — only match at sentence start
+DEFINITION_TRIGGERS = ["what is", "define ", "meaning of", "definition of"]
 
-# ✅ Block Wikipedia pages from unrelated fields
 BLOCKED_WIKI_TOPICS = [
     "physics", "neuroscience", "mathematics", "spacetime", "minkowski",
     "relativity", "brain", "psychology", "astronomy", "quantum",
     "lorentz", "geometry", "latent diffusion", "mri"
 ]
 
-# ✅ Guard: only answer if query touches these domains
 ALLOWED_ENV_KEYWORDS = [
     "environment", "ecology", "climate", "marine", "ocean", "aquatic",
     "species", "habitat", "biodiversity", "water", "soil", "air",
@@ -38,7 +38,7 @@ ALLOWED_ENV_KEYWORDS = [
     "wetland", "forest", "carbon", "emission", "wildlife", "river", "lake",
     "coastal", "algae", "sediment", "toxin", "pathogen", "microbe",
     "bacteria", "virus", "fungi", "parasite", "plankton", "benthic",
-    "salinity", "temperature", "pH", "dissolved oxygen", "turbidity",
+    "salinity", "temperature", "ph", "dissolved oxygen", "turbidity",
     "protected area", "mpa", "dfo", "cfia", "regulation", "policy",
     "surveillance", "detection", "sampling", "qpcr", "metabarcoding",
     "biomonitoring", "bioenvironmental", "spatiotemporal", "spread",
@@ -62,8 +62,8 @@ SYSTEM_PROMPTS = {
         "You are an expert environmental science assistant. "
         "ONLY answer questions related to environmental science, ecology, "
         "aquatic biology, climate, conservation, or closely related fields. "
-        "If the question is unrelated (e.g. pure physics, neuroscience, mathematics, "
-        "general medicine unrelated to environment), politely decline and redirect. "
+        "If the question is unrelated (e.g. pure physics, neuroscience, mathematics), "
+        "politely decline and redirect. "
         "If context from a web search is provided, use it to enrich your answer "
         "but always give a complete, detailed response. "
         "After your response, on a new line write exactly: "
@@ -100,8 +100,12 @@ def clean_query(query: str) -> str:
 
 
 def is_definition_query(query: str) -> bool:
+    """
+    FIX 3: Uses startswith only — prevents 'Explain X' from
+    triggering Wikipedia when it should go straight to Groq.
+    """
     lowered = query.lower()
-    return any(trigger in lowered for trigger in DEFINITION_TRIGGERS)
+    return any(lowered.startswith(trigger) for trigger in DEFINITION_TRIGGERS)
 
 
 def extract_topic(query: str) -> str:
@@ -112,10 +116,6 @@ def extract_topic(query: str) -> str:
 
 
 def is_environmental_query(query: str) -> bool:
-    """
-    Returns True if the query contains at least one environmental keyword.
-    Prevents physics, neuroscience, and other unrelated topics from passing through.
-    """
     lowered = query.lower()
     return any(keyword in lowered for keyword in ALLOWED_ENV_KEYWORDS)
 
@@ -125,9 +125,8 @@ def wikipedia_search(topic: str) -> str | None:
     page = wiki.page(topic)
     if page.exists():
         summary_lower = page.summary[:300].lower()
-        # ✅ Block off-topic Wikipedia pages
         if any(word in summary_lower for word in BLOCKED_WIKI_TOPICS):
-            logging.info(f"⛔ Wikipedia blocked — off-topic content detected: {topic}")
+            logging.info(f"⛔ Wikipedia blocked — off-topic: {topic}")
             return None
         summary = re.sub(r"\[\[.*?\]\]", "", page.summary[:800]).strip()
         return summary
@@ -136,21 +135,35 @@ def wikipedia_search(topic: str) -> str | None:
 
 def duckduckgo_search(query: str) -> str | None:
     """
-    Fetches top 3 DDG results and combines them as context for Groq.
-    Never returned raw to the user.
+    FIX 1: Runs in a thread with hard 5s timeout.
+    If DDG is too slow, returns None and Groq answers alone.
     """
     logging.info(f"🌐 DDG context fetch: {query}")
-    try:
+
+    def _search():
         with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=3))
+            results = list(ddgs.text(query, max_results=2))  # reduced to 2
             if results:
-                combined = " | ".join(
+                return " | ".join(
                     r["body"] for r in results if r.get("body")
-                )
-                return combined[:1200]
+                )[:1000]
+        return None
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_search)
+            result = future.result(timeout=5)  # ✅ hard 5s cutoff
+            if result:
+                logging.info("✅ DDG context ready → passing to Groq")
+            else:
+                logging.info("⚠️ DDG returned empty → Groq answers alone")
+            return result
+    except concurrent.futures.TimeoutError:
+        logging.warning("⏱ DDG timed out → Groq answers without context")
+        return None
     except Exception as e:
-        logging.error(f"❌ DuckDuckGo error: {e}")
-    return None
+        logging.error(f"❌ DDG error: {e}")
+        return None
 
 
 def build_messages(history: list, prompt: str, mode: str = "general", context: str = None) -> list:
@@ -192,10 +205,10 @@ def groq_stream(messages: list):
 def generate_stream(user_input: str, history: list, last_query: str, mode: str, force_ai: bool = False):
     """
     PIPELINE:
-      0. Off-topic guard — reject non-environmental queries immediately
-      1. Wikipedia       — returns directly for clear definition queries
-      2. DuckDuckGo      — fetched silently as context for Groq
-      3. Groq            — ALWAYS runs with enriched context + mode prompt
+      0. Off-topic guard     — reject non-environmental queries
+      1. Wikipedia           — only for startswith definition triggers
+      2. DuckDuckGo (5s max) — fetched as silent context for Groq
+      3. Groq                — ALWAYS runs, enriched with DDG context
     """
     clean_prompt = clean_query(user_input)
 
@@ -204,31 +217,26 @@ def generate_stream(user_input: str, history: list, last_query: str, mode: str, 
 
     # ── Step 0: Off-topic guard ─────────────────────────────────────────────
     if not force_ai and not is_environmental_query(clean_prompt):
-        logging.info(f"⛔ Off-topic query rejected: {clean_prompt}")
+        logging.info(f"⛔ Off-topic rejected: {clean_prompt}")
         yield OFF_TOPIC_RESPONSE
         return
 
     context = None
 
     if not force_ai:
-        # ── Step 1: Wikipedia (definitions only, returns directly) ──────────
+        # ── Step 1: Wikipedia (startswith triggers only) ────────────────────
         if is_definition_query(clean_prompt):
             topic = extract_topic(clean_prompt)
             wiki_result = wikipedia_search(topic)
             if wiki_result:
-                logging.info("📖 Wikipedia result — returning directly")
+                logging.info("📖 Wikipedia → returning directly")
                 yield f"📖 **Wikipedia:** {wiki_result}..."
                 return
-            # If Wikipedia blocked or missing → fall through to DDG + Groq
 
-        # ── Step 2: DDG as silent context for Groq ──────────────────────────
+        # ── Step 2: DDG context (5s timeout, never returned raw) ────────────
         context = duckduckgo_search(clean_prompt)
-        if context:
-            logging.info("🌐 DDG context fetched → passing to Groq")
-        else:
-            logging.info("⚠️ No DDG context → Groq answering from training only")
 
-    # ── Step 3: Groq always responds ────────────────────────────────────────
+    # ── Step 3: Groq ALWAYS responds ────────────────────────────────────────
     try:
         logging.info(f"🤖 Groq | mode={mode} | context={bool(context)} | force_ai={force_ai}")
         messages = build_messages(history, clean_prompt, mode, context)
@@ -322,7 +330,6 @@ def env_data():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
-
 
 
 

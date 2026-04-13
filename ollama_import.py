@@ -2,6 +2,7 @@ import os
 import re
 import logging
 import requests
+import httpx
 import concurrent.futures
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from dotenv import load_dotenv
@@ -21,7 +22,6 @@ wiki = wikipediaapi.Wikipedia(
     extract_format=wikipediaapi.ExtractFormat.WIKI
 )
 
-# ✅ FIX 3: Removed "explain" — only match at sentence start
 DEFINITION_TRIGGERS = ["what is", "define ", "meaning of", "definition of"]
 
 BLOCKED_WIKI_TOPICS = [
@@ -42,7 +42,11 @@ ALLOWED_ENV_KEYWORDS = [
     "protected area", "mpa", "dfo", "cfia", "regulation", "policy",
     "surveillance", "detection", "sampling", "qpcr", "metabarcoding",
     "biomonitoring", "bioenvironmental", "spatiotemporal", "spread",
-    "outbreak", "population", "abundance", "distribution", "mapping"
+    "outbreak", "population", "abundance", "distribution", "mapping",
+    "bivalve", "haplosporidium", "dermo", "perkinsus", "pathogen",
+    "spore", "infection", "prevalence", "mortality", "resistance",
+    "filtration", "water quality", "tidal", "estuarine", "brackish",
+    "shellfish", "mollusc", "crustacean", "zooplankton", "phytoplankton"
 ]
 
 OFF_TOPIC_RESPONSE = (
@@ -64,8 +68,8 @@ SYSTEM_PROMPTS = {
         "aquatic biology, climate, conservation, or closely related fields. "
         "If the question is unrelated (e.g. pure physics, neuroscience, mathematics), "
         "politely decline and redirect. "
-        "If context from a web search is provided, use it to enrich your answer "
-        "but always give a complete, detailed response. "
+        "If context from a web search or academic papers is provided, use it to enrich "
+        "your answer but always give a complete, detailed response. "
         "After your response, on a new line write exactly: "
         "CITE: [APA-style suggested citation for the main topic discussed]"
     ),
@@ -74,18 +78,19 @@ SYSTEM_PROMPTS = {
         "oyster diseases (MSX, Dermo), aquaculture monitoring, and bioenvironmental assessment. "
         "ONLY answer questions related to these fields or environmental science broadly. "
         "Respond with scientific precision, reference detection methodologies "
-        "(qPCR, metabarcoding, eDNA filtration, histology), and suggest relevant "
-        "monitoring techniques where applicable. "
-        "If web search context is provided, incorporate it and expand with technical depth. "
+        "(qPCR, metabarcoding, eDNA filtration, histology). "
+        "When academic paper context is provided, synthesize findings across papers, "
+        "cite specific authors and years inline, and highlight methodological differences. "
+        "Always give a thorough, graduate-level response. "
         "After your response, on a new line write exactly: "
-        "CITE: [APA-style suggested citation for the main topic discussed]"
+        "CITE: [APA-style citation for the most relevant paper mentioned]"
     ),
     "policy": (
         "You are an environmental policy advisor specializing in marine protected areas, "
         "aquaculture regulation, DFO/CFIA frameworks, and environmental monitoring policy. "
         "ONLY answer questions related to environmental governance or science policy. "
         "Frame all answers around regulatory implications, management strategies, "
-        "and policy recommendations. Incorporate any web search context provided. "
+        "and policy recommendations. Incorporate any web search or paper context provided. "
         "After your response, on a new line write exactly: "
         "CITE: [APA-style suggested citation for the main topic discussed]"
     )
@@ -100,10 +105,6 @@ def clean_query(query: str) -> str:
 
 
 def is_definition_query(query: str) -> bool:
-    """
-    FIX 3: Uses startswith only — prevents 'Explain X' from
-    triggering Wikipedia when it should go straight to Groq.
-    """
     lowered = query.lower()
     return any(lowered.startswith(trigger) for trigger in DEFINITION_TRIGGERS)
 
@@ -133,16 +134,71 @@ def wikipedia_search(topic: str) -> str | None:
     return None
 
 
+def semantic_scholar_search(query: str) -> str | None:
+    """
+    Pulls top 3 real peer-reviewed papers from Semantic Scholar API.
+    Used exclusively in Research mode to provide academic context to Groq.
+    """
+    logging.info(f"📚 Semantic Scholar search: {query}")
+
+    def _search():
+        url = "https://api.semanticscholar.org/graph/v1/paper/search"
+        params = {
+            "query":  query,
+            "limit":  3,
+            "fields": "title,authors,year,abstract,externalIds,venue"
+        }
+        r = httpx.get(url, params=params, timeout=6)
+        r.raise_for_status()
+        papers = r.json().get("data", [])
+
+        if not papers:
+            return None
+
+        results = []
+        for p in papers:
+            authors  = ", ".join(a["name"] for a in p.get("authors", [])[:3])
+            year     = p.get("year", "n.d.")
+            title    = p.get("title", "Untitled")
+            venue    = p.get("venue", "")
+            abstract = (p.get("abstract") or "No abstract available.")[:400]
+            doi      = p.get("externalIds", {}).get("DOI", "")
+            doi_link = f"https://doi.org/{doi}" if doi else ""
+
+            entry = f'Title: "{title}" ({year})\nAuthors: {authors}\nJournal: {venue}\nAbstract: {abstract}...'
+            if doi_link:
+                entry += f"\nDOI: {doi_link}"
+            results.append(entry)
+
+        return "\n\n---\n\n".join(results)
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_search)
+            result = future.result(timeout=7)
+            if result:
+                logging.info("✅ Semantic Scholar papers found → passing to Groq")
+            else:
+                logging.info("⚠️ Semantic Scholar returned no results")
+            return result
+    except concurrent.futures.TimeoutError:
+        logging.warning("⏱ Semantic Scholar timed out → falling back to DDG")
+        return None
+    except Exception as e:
+        logging.error(f"❌ Semantic Scholar error: {e}")
+        return None
+
+
 def duckduckgo_search(query: str) -> str | None:
     """
-    FIX 1: Runs in a thread with hard 5s timeout.
-    If DDG is too slow, returns None and Groq answers alone.
+    Fetches top 2 DDG results as context for Groq.
+    Used as fallback when Semantic Scholar fails or in General/Policy mode.
     """
     logging.info(f"🌐 DDG context fetch: {query}")
 
     def _search():
         with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=2))  # reduced to 2
+            results = list(ddgs.text(query, max_results=2))
             if results:
                 return " | ".join(
                     r["body"] for r in results if r.get("body")
@@ -152,7 +208,7 @@ def duckduckgo_search(query: str) -> str | None:
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(_search)
-            result = future.result(timeout=5)  # ✅ hard 5s cutoff
+            result = future.result(timeout=5)
             if result:
                 logging.info("✅ DDG context ready → passing to Groq")
             else:
@@ -166,15 +222,27 @@ def duckduckgo_search(query: str) -> str | None:
         return None
 
 
-def build_messages(history: list, prompt: str, mode: str = "general", context: str = None) -> list:
+def build_messages(
+    history: list,
+    prompt: str,
+    mode: str = "general",
+    context: str = None,
+    context_type: str = "web"   # "web" | "papers"
+) -> list:
     system_prompt = SYSTEM_PROMPTS.get(mode, SYSTEM_PROMPTS["general"])
 
     if context:
-        enriched_prompt = (
-            f"Context from web search (use this to inform and enrich your answer):\n"
-            f"{context}\n\n"
-            f"User question: {prompt}"
-        )
+        if context_type == "papers":
+            prefix = (
+                "The following are real peer-reviewed academic papers retrieved from "
+                "Semantic Scholar. Synthesize their findings, cite authors and years "
+                "inline, and use them to give a thorough scientific answer:\n\n"
+            )
+        else:
+            prefix = (
+                "Context from web search (use this to inform and enrich your answer):\n"
+            )
+        enriched_prompt = f"{prefix}{context}\n\nUser question: {prompt}"
     else:
         enriched_prompt = prompt
 
@@ -202,13 +270,20 @@ def groq_stream(messages: list):
 # CORE PIPELINE
 # ─────────────────────────────────────────────
 
-def generate_stream(user_input: str, history: list, last_query: str, mode: str, force_ai: bool = False):
+def generate_stream(
+    user_input: str,
+    history: list,
+    last_query: str,
+    mode: str,
+    force_ai: bool = False
+):
     """
     PIPELINE:
-      0. Off-topic guard     — reject non-environmental queries
-      1. Wikipedia           — only for startswith definition triggers
-      2. DuckDuckGo (5s max) — fetched as silent context for Groq
-      3. Groq                — ALWAYS runs, enriched with DDG context
+      0. Off-topic guard          — reject non-environmental queries
+      1. Wikipedia                — direct answer for definition queries only
+      2a. Semantic Scholar        — real papers as context (Research mode only)
+      2b. DuckDuckGo              — web context fallback (General/Policy or Scholar fail)
+      3. Groq                     — ALWAYS runs, synthesizes context with mode persona
     """
     clean_prompt = clean_query(user_input)
 
@@ -221,10 +296,11 @@ def generate_stream(user_input: str, history: list, last_query: str, mode: str, 
         yield OFF_TOPIC_RESPONSE
         return
 
-    context = None
+    context      = None
+    context_type = "web"
 
     if not force_ai:
-        # ── Step 1: Wikipedia (startswith triggers only) ────────────────────
+        # ── Step 1: Wikipedia (definitions only) ────────────────────────────
         if is_definition_query(clean_prompt):
             topic = extract_topic(clean_prompt)
             wiki_result = wikipedia_search(topic)
@@ -232,14 +308,28 @@ def generate_stream(user_input: str, history: list, last_query: str, mode: str, 
                 logging.info("📖 Wikipedia → returning directly")
                 yield f"📖 **Wikipedia:** {wiki_result}..."
                 return
+            # If Wikipedia misses → fall through to Scholar/DDG + Groq
 
-        # ── Step 2: DDG context (5s timeout, never returned raw) ────────────
-        context = duckduckgo_search(clean_prompt)
+        # ── Step 2a: Semantic Scholar for Research mode ──────────────────────
+        if mode == "research":
+            scholar_context = semantic_scholar_search(clean_prompt)
+            if scholar_context:
+                context      = scholar_context
+                context_type = "papers"
+                logging.info("📚 Using Semantic Scholar papers as Groq context")
+
+        # ── Step 2b: DDG fallback (General/Policy or Scholar failed) ────────
+        if not context:
+            context      = duckduckgo_search(clean_prompt)
+            context_type = "web"
 
     # ── Step 3: Groq ALWAYS responds ────────────────────────────────────────
     try:
-        logging.info(f"🤖 Groq | mode={mode} | context={bool(context)} | force_ai={force_ai}")
-        messages = build_messages(history, clean_prompt, mode, context)
+        logging.info(
+            f"🤖 Groq | mode={mode} | context_type={context_type} "
+            f"| has_context={bool(context)} | force_ai={force_ai}"
+        )
+        messages = build_messages(history, clean_prompt, mode, context, context_type)
         yield from groq_stream(messages)
     except Exception as e:
         logging.error(f"❌ Groq error: {e}")
@@ -289,7 +379,9 @@ def chat():
     logging.info(f"💬 User: {user_input} | Mode: {mode} | Force AI: {force_ai}")
 
     return Response(
-        stream_with_context(generate_stream(user_input, history, last_query, mode, force_ai)),
+        stream_with_context(
+            generate_stream(user_input, history, last_query, mode, force_ai)
+        ),
         mimetype="text/plain"
     )
 
@@ -330,6 +422,7 @@ def env_data():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
 

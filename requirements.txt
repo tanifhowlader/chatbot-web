@@ -4,6 +4,8 @@ ddgs
 wikipedia-api
 python-dotenv
 requests
+httpx
 gunicorn
 gevent
+
 

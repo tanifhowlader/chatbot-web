@@ -9,4 +9,4 @@ python-dotenv
 requests
 wikipedia-api
 gunicorn
-
+gevent
